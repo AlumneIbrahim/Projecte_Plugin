@@ -18,7 +18,31 @@ class WP_AI_Guard_Monitor {
 	 * Initialize the monitor hooks.
 	 */
 	public function init() {
+		add_action( 'init', array( $this, 'check_blocked_ips' ), 1 ); // High priority to block early
 		add_action( 'init', array( $this, 'analyze_request' ) );
+	}
+
+	/**
+	 * Check if the current visitor IP is blocked based on threat score.
+	 */
+	public function check_blocked_ips() {
+		global $wpdb;
+		$ip = $this->get_user_ip();
+		$table_name = $wpdb->prefix . 'wpguard_logs';
+
+		// Check if this IP has any record with threat_score > 7
+		$threat = $wpdb->get_var( $wpdb->prepare(
+			"SELECT MAX(threat_score) FROM $table_name WHERE ip = %s",
+			$ip
+		) );
+
+		if ( $threat && intval( $threat ) > 7 ) {
+			wp_die(
+				__( 'Access Denied: Your IP has been flagged by WP-AI-Guard due to suspicious activity.', 'wp-ai-guard' ),
+				__( 'Security Block', 'wp-ai-guard' ),
+				array( 'response' => 403 )
+			);
+		}
 	}
 
 	/**
