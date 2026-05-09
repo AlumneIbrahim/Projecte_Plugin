@@ -21,6 +21,7 @@ define( 'WP_AI_GUARD_PATH', plugin_dir_path( __FILE__ ) );
 require_once WP_AI_GUARD_PATH . 'includes/class-wp-ai-guard-db.php';
 require_once WP_AI_GUARD_PATH . 'includes/class-wp-ai-guard-admin.php';
 require_once WP_AI_GUARD_PATH . 'includes/class-wp-ai-guard-monitor.php';
+require_once WP_AI_GUARD_PATH . 'includes/class-wp-ai-guard-ai.php';
 
 /**
  * Main plugin class.
