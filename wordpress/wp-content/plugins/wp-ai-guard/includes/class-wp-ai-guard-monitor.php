@@ -26,20 +26,36 @@ class WP_AI_Guard_Monitor {
 	 * Check if the current visitor IP is blocked based on threat score.
 	 */
 	public function check_blocked_ips() {
+		// 1. Whitelist: Never block logged-in administrators.
+		if ( current_user_can( 'manage_options' ) ) {
+			return;
+		}
+
+		// 2. Learning Mode: If enabled, only log but never block.
+		if ( defined( 'WP_AI_LEARNING_MODE' ) && WP_AI_LEARNING_MODE ) {
+			return;
+		}
+
 		global $wpdb;
 		$ip = $this->get_user_ip();
 		$table_name = $wpdb->prefix . 'wpguard_logs';
 
-		// Check if this IP has any record with threat_score > 7
-		$threat = $wpdb->get_var( $wpdb->prepare(
-			"SELECT MAX(threat_score) FROM $table_name WHERE ip = %s",
-			$ip
+		// 3. Dynamic Threshold: Block only if more than 3 suspicious records in the last hour
+		// and the average threat score is greater than 8.
+		$one_hour_ago = gmdate( 'Y-m-d H:i:s', time() - HOUR_IN_SECONDS );
+		
+		$stats = $wpdb->get_row( $wpdb->prepare(
+			"SELECT COUNT(*) as log_count, AVG(threat_score) as avg_score 
+			 FROM $table_name 
+			 WHERE ip = %s AND created_at >= %s",
+			$ip,
+			$one_hour_ago
 		) );
 
-		if ( $threat && intval( $threat ) > 7 ) {
-			$this->send_block_notification( $ip, $threat );
+		if ( $stats && $stats->log_count > 3 && $stats->avg_score > 8 ) {
+			$this->send_block_notification( $ip, $stats->avg_score );
 			wp_die(
-				__( 'Access Denied: Your IP has been flagged by WP-AI-Guard due to suspicious activity.', 'wp-ai-guard' ),
+				__( 'Access Denied: Your IP has been flagged by WP-AI-Guard due to persistent suspicious activity.', 'wp-ai-guard' ),
 				__( 'Security Block', 'wp-ai-guard' ),
 				array( 'response' => 403 )
 			);

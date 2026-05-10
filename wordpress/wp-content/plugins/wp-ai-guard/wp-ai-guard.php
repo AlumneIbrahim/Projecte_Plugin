@@ -16,6 +16,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 // Define constants.
 define( 'WP_AI_GUARD_VERSION', '0.1.0' );
 define( 'WP_AI_GUARD_PATH', plugin_dir_path( __FILE__ ) );
+define( 'WP_AI_LEARNING_MODE', true ); // Learning mode: log but don't block.
 
 // Include required files.
 require_once WP_AI_GUARD_PATH . 'includes/class-wp-ai-guard-db.php';
