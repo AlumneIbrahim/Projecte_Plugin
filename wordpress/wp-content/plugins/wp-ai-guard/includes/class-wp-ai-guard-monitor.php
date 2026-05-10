@@ -37,12 +37,34 @@ class WP_AI_Guard_Monitor {
 		) );
 
 		if ( $threat && intval( $threat ) > 7 ) {
+			$this->send_block_notification( $ip, $threat );
 			wp_die(
 				__( 'Access Denied: Your IP has been flagged by WP-AI-Guard due to suspicious activity.', 'wp-ai-guard' ),
 				__( 'Security Block', 'wp-ai-guard' ),
 				array( 'response' => 403 )
 			);
 		}
+	}
+
+	/**
+	 * Send an email notification when an IP is blocked.
+	 */
+	private function send_block_notification( $ip, $threat_score ) {
+		$enabled = get_option( 'wpguard_notifications_enabled', '1' );
+		if ( '1' !== $enabled ) {
+			return;
+		}
+
+		$notification_email = get_option( 'wpguard_notification_email', get_option( 'admin_email' ) );
+		$subject            = sprintf( '[WP-AI-Guard] IP Blocked: %s', $ip );
+		$message            = sprintf(
+			"The following IP address has been blocked by WP-AI-Guard:\n\nIP: %s\nThreat Score: %s/10\nTime: %s\n\nPlease check the WP-AI-Guard dashboard for more details.",
+			$ip,
+			$threat_score,
+			current_time( 'mysql' )
+		);
+
+		wp_mail( $notification_email, $subject, $message );
 	}
 
 	/**
