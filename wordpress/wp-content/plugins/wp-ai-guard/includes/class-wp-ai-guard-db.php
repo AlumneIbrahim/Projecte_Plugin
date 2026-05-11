@@ -34,8 +34,12 @@ class WP_AI_Guard_DB {
 			request_data text NOT NULL,
 			threat_score int(3) DEFAULT 0,
 			ai_analysis text DEFAULT NULL,
+			status varchar(20) DEFAULT 'pending' NOT NULL,
 			created_at datetime DEFAULT CURRENT_TIMESTAMP NOT NULL,
-			PRIMARY KEY  (id)
+			PRIMARY KEY  (id),
+			KEY ip (ip),
+			KEY created_at (created_at),
+			KEY status (status)
 		) $charset_collate;";
 
 		require_once ABSPATH . 'wp-admin/includes/upgrade.php';

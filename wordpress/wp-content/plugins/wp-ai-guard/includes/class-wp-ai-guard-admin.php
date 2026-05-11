@@ -35,7 +35,14 @@ class WP_AI_Guard_Admin {
 
 		global $wpdb;
 		$table_name = $wpdb->prefix . 'wpguard_logs';
-		$logs = $wpdb->get_results( "SELECT * FROM $table_name ORDER BY created_at DESC LIMIT 20" );
+		$last_id = isset( $_POST['last_id'] ) ? intval( $_POST['last_id'] ) : 0;
+
+		// If it's the first load, get the last 20. If not, get only new ones.
+		if ( $last_id === 0 ) {
+			$logs = $wpdb->get_results( "SELECT * FROM $table_name ORDER BY created_at DESC LIMIT 20" );
+		} else {
+			$logs = $wpdb->get_results( $wpdb->prepare( "SELECT * FROM $table_name WHERE id > %d ORDER BY created_at ASC", $last_id ) );
+		}
 
 		foreach ( $logs as &$log ) {
 			$request_info = json_decode( $log->request_data, true );
@@ -64,7 +71,20 @@ class WP_AI_Guard_Admin {
 
 		$log_id = intval( $_POST['log_id'] );
 		global $wpdb;
-		$log = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$wpdb->prefix}wpguard_logs WHERE id = %d", $log_id ) );
+		$table_name = $wpdb->prefix . 'wpguard_logs';
+
+		// Lock row for processing
+		$updated = $wpdb->update(
+			$table_name,
+			array( 'status' => 'processing' ),
+			array( 'id' => $log_id, 'status' => 'pending' )
+		);
+
+		if ( ! $updated ) {
+			wp_send_json_error( 'Log already being processed or completed' );
+		}
+
+		$log = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM $table_name WHERE id = %d", $log_id ) );
 
 		if ( ! $log ) {
 			wp_send_json_error( 'Log not found' );
@@ -76,7 +96,8 @@ class WP_AI_Guard_Admin {
 		$result = $ai->analyze_log( $log );
 
 		if ( $result ) {
-			// Extract some info for the console
+			$wpdb->update( $table_name, array( 'status' => 'completed' ), array( 'id' => $log_id ) );
+			
 			$request_info = json_decode( $log->request_data, true );
 			$url = isset($request_info['url']) ? $request_info['url'] : 'N/A';
 
@@ -86,6 +107,8 @@ class WP_AI_Guard_Admin {
 				'url'     => $url
 			) );
 		} else {
+			// Back to pending for retry
+			$wpdb->update( $table_name, array( 'status' => 'pending' ), array( 'id' => $log_id ) );
 			wp_send_json_error( 'AI Analysis failed' );
 		}
 	}
@@ -230,46 +253,64 @@ class WP_AI_Guard_Admin {
 						const $console = $('#wpguard-console');
 						const $progressContainer = $('#wpguard-progress-container');
 						let isAnalyzing = false;
-						let analyzedIds = new Set();
+						let lastId = 0;
+						let pendingQueue = [];
 
 						function updateLogs() {
 							$.post(ajaxurl, {
 								action: 'wpguard_get_latest_logs',
+								last_id: lastId,
 								nonce: '<?php echo wp_create_nonce("wpguard_ai_nonce"); ?>'
 							}, function(response) {
-								if (response.success) {
+								if (response.success && response.data.length > 0) {
 									renderLogs(response.data);
-									processPendingAnalysis(response.data);
 								}
 							});
 						}
 
 						function renderLogs(logs) {
-							let html = '';
 							logs.forEach(log => {
-								html += `<tr id="log-${log.id}" class="${(!log.ai_analysis) ? 'wpguard-analyzing' : ''}">
+								if (log.id > lastId) lastId = log.id;
+								
+								const existingRow = $(`#log-${log.id}`);
+								const rowHtml = `<tr id="log-${log.id}" class="${(log.status !== 'completed') ? 'wpguard-analyzing' : ''}">
 									<td>${log.created_at}</td>
 									<td><strong>${log.ip}</strong></td>
 									<td>${log.badge_html}</td>
 									<td style="font-size:11px; font-family:monospace;">${log.url}</td>
 									<td class="ai-cell">${log.ai_display}</td>
 								</tr>`;
+
+								if (existingRow.length) {
+									existingRow.replaceWith(rowHtml);
+								} else {
+									$logBody.prepend(rowHtml);
+								}
+
+								if (log.status === 'pending') {
+									if (!pendingQueue.includes(log.id)) {
+										pendingQueue.push(log.id);
+										processQueue();
+									}
+								}
 							});
-							$logBody.html(html);
+							
+							// Remove initial "loading" message if present
+							$logBody.find('tr:contains("Carregant logs...")').remove();
 						}
 
-						function processPendingAnalysis(logs) {
-							if (isAnalyzing) return;
+						function processQueue() {
+							if (isAnalyzing || pendingQueue.length === 0) return;
 
-							const pending = logs.find(log => !log.ai_analysis && !analyzedIds.has(log.id));
-							if (pending) {
-								analyzeLog(pending.id, pending.url);
-							}
+							const logId = pendingQueue.shift();
+							const $row = $(`#log-${logId}`);
+							const url = $row.find('td:eq(3)').text();
+
+							analyzeLog(logId, url);
 						}
 
 						function analyzeLog(id, url) {
 							isAnalyzing = true;
-							analyzedIds.add(id);
 							$progressContainer.show();
 							$console.append('<br>> **Analitzant atac a:** ' + url);
 							$console.scrollTop($console[0].scrollHeight);
@@ -283,11 +324,14 @@ class WP_AI_Guard_Admin {
 								if (response.success) {
 									$console.append('<br>  [OK] Risc: ' + response.data.score + '/10 - ' + response.data.message);
 								} else {
-									$console.append('<br>  [FAIL] Error en Log ' + id);
-									analyzedIds.delete(id); // Retry next time
+									$console.append('<br>  [SKIP] ' + (response.data || 'Error'));
 								}
 								$console.scrollTop($console[0].scrollHeight);
-								updateLogs(); // Refresh immediately after analysis
+								
+								// Trigger immediate update for this log
+								updateLogs();
+								// Process next in queue
+								processQueue();
 							});
 						}
 

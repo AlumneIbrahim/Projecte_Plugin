@@ -29,6 +29,20 @@ class WP_AI_Guard_Monitor {
 	 * Run AI analysis asynchronously.
 	 */
 	public function run_async_analysis( $log_id, $ip, $request_data ) {
+		global $wpdb;
+		$table_name = $wpdb->prefix . 'wpguard_logs';
+
+		// Lock the row for processing to avoid dual analysis
+		$updated = $wpdb->update(
+			$table_name,
+			array( 'status' => 'processing' ),
+			array( 'id' => $log_id, 'status' => 'pending' )
+		);
+
+		if ( ! $updated ) {
+			return; // Already being processed or completed
+		}
+
 		$engine = get_option( 'wp_ai_guard_engine' );
 		if ( ! $engine ) {
 			return;
@@ -41,15 +55,22 @@ class WP_AI_Guard_Monitor {
 		);
 
 		$ai = ( 'ollama' === $engine ) ? new WP_AI_Guard_Ollama() : new WP_AI_Guard_AI();
-		$ai->analyze_log( $log );
+		$result = $ai->analyze_log( $log );
+
+		if ( $result ) {
+			$wpdb->update( $table_name, array( 'status' => 'completed' ), array( 'id' => $log_id ) );
+		} else {
+			// If analysis failed, set back to pending so it can be retried later
+			$wpdb->update( $table_name, array( 'status' => 'pending' ), array( 'id' => $log_id ) );
+		}
 	}
 
 	/**
 	 * Check if the current visitor IP is blocked based on threat score.
 	 */
 	public function check_blocked_ips() {
-		// 1. Whitelist: Never block logged-in administrators.
-		if ( current_user_can( 'manage_options' ) ) {
+		// 1. Whitelist: Never block logged-in administrators or CLI.
+		if ( ( function_exists( 'current_user_can' ) && current_user_can( 'manage_options' ) ) || ( defined( 'DOING_CRON' ) && DOING_CRON ) || php_sapi_name() === 'cli' ) {
 			return;
 		}
 
@@ -60,6 +81,8 @@ class WP_AI_Guard_Monitor {
 
 		global $wpdb;
 		$ip = $this->get_user_ip();
+		if ( ! $ip ) return;
+
 		$table_name = $wpdb->prefix . 'wpguard_logs';
 
 		// 3. Dynamic Threshold: Block only if more than 3 suspicious records in the last hour
@@ -109,7 +132,14 @@ class WP_AI_Guard_Monitor {
 	 * Analyze the incoming request for suspicious content.
 	 */
 	public function analyze_request() {
+		// Don't analyze admin or internal requests
+		if ( is_admin() || ( defined( 'DOING_AJAX' ) && DOING_AJAX ) || ( defined( 'DOING_CRON' ) && DOING_CRON ) ) {
+			return;
+		}
+
 		$ip           = $this->get_user_ip();
+		if ( ! $ip ) return;
+
 		$url          = $_SERVER['REQUEST_URI'];
 		$post_data    = $_POST;
 		$get_data     = $_GET; // Added GET data monitoring
@@ -131,12 +161,22 @@ class WP_AI_Guard_Monitor {
 	 * Get the real user IP address.
 	 */
 	private function get_user_ip() {
-		if ( ! empty( $_SERVER['HTTP_CLIENT_IP'] ) ) {
-			return $_SERVER['HTTP_CLIENT_IP'];
-		} elseif ( ! empty( $_SERVER['HTTP_X_FORWARDED_FOR'] ) ) {
-			return $_SERVER['HTTP_X_FORWARDED_FOR'];
+		if ( php_sapi_name() === 'cli' ) {
+			return '127.0.0.1';
 		}
-		return $_SERVER['REMOTE_ADDR'];
+		
+		$ip_keys = array( 'HTTP_CLIENT_IP', 'HTTP_X_FORWARDED_FOR', 'HTTP_X_REAL_IP', 'REMOTE_ADDR' );
+		foreach ( $ip_keys as $key ) {
+			if ( ! empty( $_SERVER[ $key ] ) ) {
+				foreach ( explode( ',', $_SERVER[ $key ] ) as $ip ) {
+					$ip = trim( $ip );
+					if ( filter_var( $ip, FILTER_VALIDATE_IP ) ) {
+						return $ip;
+					}
+				}
+			}
+		}
+		return '0.0.0.0';
 	}
 
 	/**
@@ -195,20 +235,16 @@ class WP_AI_Guard_Monitor {
 
 		$table_name = $wpdb->prefix . 'wpguard_logs';
 		$json_data  = wp_json_encode( $data );
-		$url        = $data['url'] ?? 'N/A';
 
-		// We removed the 'Fast-Path' override to ensure all detected patterns are analyzed by AI,
-		// even if they come from localhost, to satisfy the requirement of detecting local attacks.
 		$initial_score = 5; // Default suspicious score until AI confirms
-		$ai_analysis   = '';
-
+		
 		$wpdb->insert(
 			$table_name,
 			array(
 				'ip'           => $ip,
 				'request_data' => $json_data,
 				'threat_score' => $initial_score,
-				'ai_analysis'  => $ai_analysis,
+				'status'       => 'pending',
 				'created_at'   => current_time( 'mysql' ),
 			),
 			array( '%s', '%s', '%d', '%s', '%s' )
