@@ -20,6 +20,28 @@ class WP_AI_Guard_Monitor {
 	public function init() {
 		add_action( 'init', array( $this, 'check_blocked_ips' ), 1 ); // High priority to block early
 		add_action( 'init', array( $this, 'analyze_request' ) );
+		
+		// Hook for asynchronous AI analysis via WP-Cron
+		add_action( 'wpguard_async_ai_analysis', array( $this, 'run_async_analysis' ), 10, 3 );
+	}
+
+	/**
+	 * Run AI analysis asynchronously.
+	 */
+	public function run_async_analysis( $log_id, $ip, $request_data ) {
+		$engine = get_option( 'wp_ai_guard_engine' );
+		if ( ! $engine ) {
+			return;
+		}
+
+		$log = (object) array(
+			'id'           => $log_id,
+			'ip'           => $ip,
+			'request_data' => $request_data,
+		);
+
+		$ai = ( 'ollama' === $engine ) ? new WP_AI_Guard_Ollama() : new WP_AI_Guard_AI();
+		$ai->analyze_log( $log );
 	}
 
 	/**
@@ -138,18 +160,19 @@ class WP_AI_Guard_Monitor {
 	}
 
 	/**
-	 * Log the suspicious request to the database and trigger automatic AI analysis.
+	 * Log the suspicious request to the database and schedule asynchronous AI analysis.
 	 */
 	private function log_suspicious_request( $ip, $data ) {
 		global $wpdb;
 
 		$table_name = $wpdb->prefix . 'wpguard_logs';
+		$json_data  = wp_json_encode( $data );
 
 		$wpdb->insert(
 			$table_name,
 			array(
 				'ip'           => $ip,
-				'request_data' => wp_json_encode( $data ),
+				'request_data' => $json_data,
 				'threat_score' => 10, // Default initial score
 				'ai_analysis'  => '', // Leave empty for AI to fill
 				'created_at'   => current_time( 'mysql' ),
@@ -159,17 +182,8 @@ class WP_AI_Guard_Monitor {
 
 		$log_id = $wpdb->insert_id;
 
-		// Trigger automatic AI analysis if an engine is selected
-		$engine = get_option( 'wp_ai_guard_engine' );
-		if ( $engine ) {
-			$log = (object) array(
-				'id'           => $log_id,
-				'ip'           => $ip,
-				'request_data' => wp_json_encode( $data ),
-			);
-
-			$ai = ( 'ollama' === $engine ) ? new WP_AI_Guard_Ollama() : new WP_AI_Guard_AI();
-			$ai->analyze_log( $log );
-		}
+		// SCHEDULE ASYNCHRONOUS ANALYSIS (WP-CRON)
+		// This makes the site load instantly while the AI works in the background.
+		wp_schedule_single_event( time(), 'wpguard_async_ai_analysis', array( $log_id, $ip, $json_data ) );
 	}
 }
