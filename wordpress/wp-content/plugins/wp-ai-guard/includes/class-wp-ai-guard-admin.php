@@ -19,37 +19,40 @@ class WP_AI_Guard_Admin {
 	 */
 	public function init() {
 		add_action( 'admin_menu', array( $this, 'add_admin_menu' ) );
-		add_action( 'admin_post_wpguard_run_ai', array( $this, 'handle_manual_ai_analysis' ) );
+		add_action( 'wp_ajax_wpguard_analyze_single_log', array( $this, 'ajax_analyze_single_log' ) );
 	}
 
 	/**
-	 * Handle the manual AI analysis trigger.
+	 * AJAX handler to analyze a single log and return progress.
 	 */
-	public function handle_manual_ai_analysis() {
-		check_admin_referer( 'wpguard_run_ai_action' );
+	public function ajax_analyze_single_log() {
+		check_ajax_referer( 'wpguard_ai_nonce', 'nonce' );
 
 		if ( ! current_user_can( 'manage_options' ) ) {
-			wp_die( __( 'You do not have sufficient permissions to access this page.' ) );
+			wp_send_json_error( 'Unauthorized' );
 		}
 
-		// Increase time limit for large batches
-		set_time_limit( 300 );
-
+		$log_id = intval( $_POST['log_id'] );
 		global $wpdb;
-		// Process up to 10 unanalyzed logs
-		$logs = $wpdb->get_results( "SELECT * FROM {$wpdb->prefix}wpguard_logs WHERE threat_score < 100 AND (ai_analysis IS NULL OR ai_analysis = '') ORDER BY created_at DESC LIMIT 10" );
+		$log = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$wpdb->prefix}wpguard_logs WHERE id = %d", $log_id ) );
 
-		if ( ! empty( $logs ) ) {
-			$engine = get_option( 'wp_ai_guard_engine', 'gemini' );
-			$ai = ( $engine === 'ollama' ) ? new WP_AI_Guard_Ollama() : new WP_AI_Guard_AI();
-			
-			foreach ( $logs as $log ) {
-				$ai->analyze_log( $log );
-			}
+		if ( ! $log ) {
+			wp_send_json_error( 'Log not found' );
 		}
 
-		wp_redirect( admin_url( 'admin.php?page=wp-ai-guard-status&analyzed=1' ) );
-		exit;
+		$engine = get_option( 'wp_ai_guard_engine', 'gemini' );
+		$ai = ( $engine === 'ollama' ) ? new WP_AI_Guard_Ollama() : new WP_AI_Guard_AI();
+		
+		$result = $ai->analyze_log( $log );
+
+		if ( $result ) {
+			wp_send_json_success( array(
+				'message' => sprintf( "[%s] %s", $result['type'], $result['explanation'] ),
+				'score'   => $result['threat_level']
+			) );
+		} else {
+			wp_send_json_error( 'AI Analysis failed' );
+		}
 	}
 
 	/**
@@ -149,13 +152,88 @@ class WP_AI_Guard_Admin {
 
 					<div class="card" style="max-width: 100%; margin-bottom: 20px;">
 						<h2><?php _e( 'AI Intelligence', 'wp-ai-guard' ); ?></h2>
-						<p><?php _e( 'Trigger a deep analysis of recent suspicious activity using Google Gemini Pro.', 'wp-ai-guard' ); ?></p>
-						<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
-							<input type="hidden" name="action" value="wpguard_run_ai">
-							<?php wp_nonce_field( 'wpguard_run_ai_action' ); ?>
-							<?php submit_button( __( 'Run AI Analysis Now', 'wp-ai-guard' ), 'primary' ); ?>
-						</form>
+						<p><?php _e( 'Analitza manualment els logs recents un per un amb feedback en temps real.', 'wp-ai-guard' ); ?></p>
+						
+						<div id="wpguard-progress-container" style="display:none; margin-bottom: 20px; padding: 15px; background: #f0f0f1; border-radius: 4px;">
+							<div style="font-weight:bold; margin-bottom:10px;"><?php _e( 'Processant...', 'wp-ai-guard' ); ?> <span id="wpguard-current-count">0</span>/<span id="wpguard-total-count">0</span></div>
+							<div id="wpguard-progress-bar" style="width:100%; height:20px; background:#ccc; border-radius:10px; overflow:hidden;">
+								<div id="wpguard-progress-fill" style="width:0%; height:100%; background:#2271b1; transition: width 0.3s;"></div>
+							</div>
+							<div id="wpguard-console" style="margin-top:15px; font-family:monospace; font-size:11px; max-height:150px; overflow-y:auto; background:#000; color:#0f0; padding:10px; border-radius:4px;">
+								> <?php _e( 'Esperant inici...', 'wp-ai-guard' ); ?>
+							</div>
+						</div>
+
+						<button id="wpguard-start-analysis" class="button button-primary"><?php _e( 'Iniciar Anàlisi en Temps Real', 'wp-ai-guard' ); ?></button>
 					</div>
+
+					<script>
+					jQuery(document).ready(function($) {
+						$('#wpguard-start-analysis').on('click', function() {
+							const $btn = $(this);
+							const $console = $('#wpguard-console');
+							const $progressFill = $('#wpguard-progress-fill');
+							const $currentCount = $('#wpguard-current-count');
+							const $totalCount = $('#wpguard-total-count');
+							
+							$btn.prop('disabled', true).text('Analitzant...');
+							$('#wpguard-progress-container').show();
+							$console.html('> Cercant logs pendents...');
+
+							// Fetch unanalyzed logs
+							const logsToAnalyze = [
+								<?php 
+								$pending = $wpdb->get_col( "SELECT id FROM $table_name WHERE (ai_analysis IS NULL OR ai_analysis = '') ORDER BY created_at DESC LIMIT 10" );
+								echo implode(',', $pending);
+								?>
+							];
+
+							if (logsToAnalyze.length === 0) {
+								$console.append('<br>> No hi ha logs pendents.');
+								$btn.prop('disabled', false).text('Iniciar Anàlisi');
+								return;
+							}
+
+							$totalCount.text(logsToAnalyze.length);
+							let completed = 0;
+
+							const analyzeNext = () => {
+								if (completed >= logsToAnalyze.length) {
+									$console.append('<br>> **Anàlisi finalitzat correctament.**');
+									$btn.prop('disabled', false).text('Iniciar Anàlisi');
+									setTimeout(() => location.reload(), 2000);
+									return;
+								}
+
+								const logId = logsToAnalyze[completed];
+								$console.append('<br>> Analitzant Log ID: ' + logId + '...');
+								$console.scrollTop($console[0].scrollHeight);
+
+								$.post(ajaxurl, {
+									action: 'wpguard_analyze_single_log',
+									log_id: logId,
+									nonce: '<?php echo wp_create_nonce("wpguard_ai_nonce"); ?>'
+								}, function(response) {
+									completed++;
+									const percent = (completed / logsToAnalyze.length) * 100;
+									$progressFill.css('width', percent + '%');
+									$currentCount.text(completed);
+
+									if (response.success) {
+										$console.append('<br>  [OK] Threat Score: ' + response.data.score + '/10');
+										$console.append('<br>  [INFO] ' + response.data.message);
+									} else {
+										$console.append('<br>  [ERROR] ' + response.data);
+									}
+									$console.scrollTop($console[0].scrollHeight);
+									analyzeNext();
+								});
+							};
+
+							analyzeNext();
+						});
+					});
+					</script>
 
 					<h2 style="margin-top: 30px;"><?php _e( 'Security Activity Logs', 'wp-ai-guard' ); ?></h2>
 					<table class="widefat fixed striped">
