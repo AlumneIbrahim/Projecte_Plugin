@@ -33,8 +33,13 @@ class WP_AI_Guard_AI {
 		}
 
 		$prompt = sprintf(
-			"Analitza aquest log de trànsit de WordPress i determina si és un atac. Respon EXCLUSIVAMENT amb un format JSON: {\"threat_level\": 0-10, \"type\": \"tipus d'atac\", \"explanation\": \"per què\"}. \n\nLog: IP: %s, Data: %s",
+			"Analitza aquest trànsit de WordPress i detecta si és un intent d'atac (SQLi, XSS, Directory Traversal, etc.).
+			DADES: IP: %s, URL: %s.
+			INSTRUCCIÓ: Avalua el risc de forma objectiva segons el contingut del log, independentment de si la IP és local o externa.
+			Respon EXCLUSIVAMENT amb JSON: {\"threat_level\": 0-10, \"type\": \"tipus\", \"explanation\": \"per què\"}.
+			Log: %s",
 			$log->ip,
+			$log->url ?? 'Desconeguda',
 			$log->request_data
 		);
 

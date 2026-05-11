@@ -17,9 +17,10 @@ WP-AI-Guard és un plugin de seguretat avançat que utilitza Intel·ligència Ar
 - XAMPP/LAMPP (per a entorn local).
 - **Ollama** (opcional, per a la versió local gratuïta).
 
-## 📦 Instal·lació
+## 📦 Instal·lació i Ús
 
-Consulta el fitxer [INFORME_FINAL.md](INFORME_FINAL.md) per a una guia detallada pas a pas de la configuració de l'entorn i el plugin.
+- **Configuració de l'Entorn:** Consulta la [Guia d'Inicialització de XAMPP a Linux](XAMPP_LINUX_GUIDE.md) per posar en marxa el servidor.
+- **Detalls del Projecte:** Consulta el fitxer [INFORME_FINAL.md](INFORME_FINAL.md) per a una guia detallada pas a pas de la configuració del plugin.
 
 ## ⚙️ Configuració de l'IA
 

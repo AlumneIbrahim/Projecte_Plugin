@@ -151,11 +151,13 @@ class WP_AI_Guard_Monitor {
 		$values[] = $url; // Include decoded URL in the check
 		
 		$suspicious_patterns = array(
-			'/<[^>]*>/',           // HTML tags (XSS)
-			'/[\'"]/',              // Quotes
-			'/\b(SELECT|INSERT|UPDATE|DELETE|DROP|UNION|TRUNCATE)\b/i', // SQL Keywords
-			'/<script/i',           // Script tag
-			'/\.\.\//',             // Directory traversal (../)
+			'/<script.*?>.*?<\/script>/is', // Script tags with content
+			'/on\w+\s*=/i',                // Event handlers (onerror, onload, etc.)
+			'/\b(SELECT|INSERT|UPDATE|DELETE|DROP|UNION|TRUNCATE)\b\s+.*\bFROM\b/i', // More specific SQL SQL Injection
+			'/\bUNION\s+SELECT\b/i',       // Classic UNION SQLi
+			'/\.\.\//',                    // Directory traversal (../)
+			'/<iframe.*?>/i',              // Iframe injection
+			'/(base64_|eval\(|system\(|passthru\()/i', // PHP dangerous functions
 		);
 
 		foreach ( $values as $value ) {
@@ -193,14 +195,20 @@ class WP_AI_Guard_Monitor {
 
 		$table_name = $wpdb->prefix . 'wpguard_logs';
 		$json_data  = wp_json_encode( $data );
+		$url        = $data['url'] ?? 'N/A';
+
+		// We removed the 'Fast-Path' override to ensure all detected patterns are analyzed by AI,
+		// even if they come from localhost, to satisfy the requirement of detecting local attacks.
+		$initial_score = 5; // Default suspicious score until AI confirms
+		$ai_analysis   = '';
 
 		$wpdb->insert(
 			$table_name,
 			array(
 				'ip'           => $ip,
 				'request_data' => $json_data,
-				'threat_score' => 10, // Default initial score
-				'ai_analysis'  => '', // Leave empty for AI to fill
+				'threat_score' => $initial_score,
+				'ai_analysis'  => $ai_analysis,
 				'created_at'   => current_time( 'mysql' ),
 			),
 			array( '%s', '%s', '%d', '%s', '%s' )
@@ -208,11 +216,8 @@ class WP_AI_Guard_Monitor {
 
 		$log_id = $wpdb->insert_id;
 
-		// SCHEDULE ASYNCHRONOUS ANALYSIS (WP-CRON)
-		// This makes the site load instantly while the AI works in the background.
+		// Always schedule AI analysis for suspicious requests
 		wp_schedule_single_event( time(), 'wpguard_async_ai_analysis', array( $log_id, $ip, $json_data ) );
-		
-		// Force trigger WP-Cron to start the analysis immediately
 		spawn_cron();
 	}
 }
