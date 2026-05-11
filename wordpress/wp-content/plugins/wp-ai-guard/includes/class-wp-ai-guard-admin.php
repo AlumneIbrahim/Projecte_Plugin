@@ -32,8 +32,12 @@ class WP_AI_Guard_Admin {
 			wp_die( __( 'You do not have sufficient permissions to access this page.' ) );
 		}
 
+		// Increase time limit for large batches
+		set_time_limit( 300 );
+
 		global $wpdb;
-		$logs = $wpdb->get_results( "SELECT * FROM {$wpdb->prefix}wpguard_logs WHERE threat_score < 100 ORDER BY created_at DESC LIMIT 5" );
+		// Process up to 10 unanalyzed logs
+		$logs = $wpdb->get_results( "SELECT * FROM {$wpdb->prefix}wpguard_logs WHERE threat_score < 100 AND (ai_analysis IS NULL OR ai_analysis = '') ORDER BY created_at DESC LIMIT 10" );
 
 		if ( ! empty( $logs ) ) {
 			$engine = get_option( 'wp_ai_guard_engine', 'gemini' );

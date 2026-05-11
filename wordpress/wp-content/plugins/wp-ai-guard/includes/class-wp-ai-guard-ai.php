@@ -56,7 +56,7 @@ class WP_AI_Guard_AI {
 			array(
 				'body'    => wp_json_encode( $body ),
 				'headers' => array( 'Content-Type' => 'application/json' ),
-				'timeout' => 30,
+				'timeout' => 60, // Increased timeout for AI
 			)
 		);
 

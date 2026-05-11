@@ -138,7 +138,7 @@ class WP_AI_Guard_Monitor {
 	}
 
 	/**
-	 * Log the suspicious request to the database.
+	 * Log the suspicious request to the database and trigger automatic AI analysis.
 	 */
 	private function log_suspicious_request( $ip, $data ) {
 		global $wpdb;
@@ -150,11 +150,26 @@ class WP_AI_Guard_Monitor {
 			array(
 				'ip'           => $ip,
 				'request_data' => wp_json_encode( $data ),
-				'threat_score' => 10, // Default initial score for suspicious detection
-				'ai_analysis'  => 'Detected via pattern matching: suspicious characters or SQL keywords.',
+				'threat_score' => 10, // Default initial score
+				'ai_analysis'  => '', // Leave empty for AI to fill
 				'created_at'   => current_time( 'mysql' ),
 			),
 			array( '%s', '%s', '%d', '%s', '%s' )
 		);
+
+		$log_id = $wpdb->insert_id;
+
+		// Trigger automatic AI analysis if an engine is selected
+		$engine = get_option( 'wp_ai_guard_engine' );
+		if ( $engine ) {
+			$log = (object) array(
+				'id'           => $log_id,
+				'ip'           => $ip,
+				'request_data' => wp_json_encode( $data ),
+			);
+
+			$ai = ( 'ollama' === $engine ) ? new WP_AI_Guard_Ollama() : new WP_AI_Guard_AI();
+			$ai->analyze_log( $log );
+		}
 	}
 }
