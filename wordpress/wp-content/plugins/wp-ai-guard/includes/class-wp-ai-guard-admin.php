@@ -36,7 +36,9 @@ class WP_AI_Guard_Admin {
 		$logs = $wpdb->get_results( "SELECT * FROM {$wpdb->prefix}wpguard_logs WHERE threat_score < 100 ORDER BY created_at DESC LIMIT 5" );
 
 		if ( ! empty( $logs ) ) {
-			$ai = new WP_AI_Guard_AI();
+			$engine = get_option( 'wp_ai_guard_engine', 'gemini' );
+			$ai = ( $engine === 'ollama' ) ? new WP_AI_Guard_Ollama() : new WP_AI_Guard_AI();
+			
 			foreach ( $logs as $log ) {
 				$ai->analyze_log( $log );
 			}
@@ -74,12 +76,16 @@ class WP_AI_Guard_Admin {
 			update_option( 'wpguard_notifications_enabled', isset( $_POST['notifications_enabled'] ) ? '1' : '0' );
 			update_option( 'wpguard_notification_email', sanitize_email( $_POST['notification_email'] ) );
 			update_option( 'wp_ai_guard_api_key', sanitize_text_field( $_POST['gemini_api_key'] ) );
+			update_option( 'wp_ai_guard_engine', sanitize_text_field( $_POST['ai_engine'] ) );
+			update_option( 'wp_ai_guard_ollama_model', sanitize_text_field( $_POST['ollama_model'] ) );
 			echo '<div class="notice notice-success is-dismissible"><p>' . __( 'Configuració guardada correctament.', 'wp-ai-guard' ) . '</p></div>';
 		}
 
 		$notifications_enabled = get_option( 'wpguard_notifications_enabled', '1' );
 		$notification_email    = get_option( 'wpguard_notification_email', get_option( 'admin_email' ) );
 		$api_key               = get_option( 'wp_ai_guard_api_key', '' );
+		$ai_engine             = get_option( 'wp_ai_guard_engine', 'gemini' );
+		$ollama_model          = get_option( 'wp_ai_guard_ollama_model', 'llama3' );
 		?>
 		<style>
 			.wpguard-header { background: #fff; padding: 20px; border-bottom: 1px solid #c3c4c7; margin: -20px -20px 20px -20px; display: flex; align-items: center; justify-content: space-between; }
@@ -206,10 +212,27 @@ class WP_AI_Guard_Admin {
 						<?php wp_nonce_field( 'wpguard_save_settings_action' ); ?>
 						<table class="form-table">
 							<tr>
+								<th scope="row"><?php _e( 'AI Engine', 'wp-ai-guard' ); ?></th>
+								<td>
+									<select name="ai_engine" id="ai_engine">
+										<option value="gemini" <?php selected( $ai_engine, 'gemini' ); ?>>Google Gemini (Online/API)</option>
+										<option value="ollama" <?php selected( $ai_engine, 'ollama' ); ?>>Ollama (Local AI - Free)</option>
+									</select>
+									<p class="description"><?php _e( 'Selecciona quina IA vols utilitzar per analitzar els logs.', 'wp-ai-guard' ); ?></p>
+								</td>
+							</tr>
+							<tr class="gemini-settings" <?php echo $ai_engine !== 'gemini' ? 'style="display:none;"' : ''; ?>>
 								<th scope="row"><?php _e( 'Gemini API Key', 'wp-ai-guard' ); ?></th>
 								<td>
 									<input name="gemini_api_key" type="password" id="gemini_api_key" value="<?php echo esc_attr( $api_key ); ?>" class="regular-text">
-									<p class="description"><?php _e( 'Clau de l\'API per a l\'anàlisi amb intel·ligència artificial.', 'wp-ai-guard' ); ?></p>
+									<p class="description"><?php _e( 'Clau de l\'API per a l\'anàlisi amb Google Gemini.', 'wp-ai-guard' ); ?></p>
+								</td>
+							</tr>
+							<tr class="ollama-settings" <?php echo $ai_engine !== 'ollama' ? 'style="display:none;"' : ''; ?>>
+								<th scope="row"><?php _e( 'Ollama Model', 'wp-ai-guard' ); ?></th>
+								<td>
+									<input name="ollama_model" type="text" id="ollama_model" value="<?php echo esc_attr( $ollama_model ); ?>" class="regular-text">
+									<p class="description"><?php _e( 'Nom del model instal·lat a Ollama (ex: llama3, mistral).', 'wp-ai-guard' ); ?></p>
 								</td>
 							</tr>
 							<tr>
@@ -229,6 +252,13 @@ class WP_AI_Guard_Admin {
 								</td>
 							</tr>
 						</table>
+						<script>
+							document.getElementById('ai_engine').addEventListener('change', function() {
+								var engine = this.value;
+								document.querySelector('.gemini-settings').style.display = engine === 'gemini' ? '' : 'none';
+								document.querySelector('.ollama-settings').style.display = engine === 'ollama' ? '' : 'none';
+							});
+						</script>
 						<?php submit_button( __( 'Guardar Configuració', 'wp-ai-guard' ), 'primary', 'wpguard_save_settings' ); ?>
 					</form>
 				</div>
