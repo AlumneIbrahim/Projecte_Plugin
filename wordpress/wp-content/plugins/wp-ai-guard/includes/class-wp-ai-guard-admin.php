@@ -218,7 +218,10 @@ class WP_AI_Guard_Admin {
 										<option value="gemini" <?php selected( $ai_engine, 'gemini' ); ?>>Google Gemini (Online/API)</option>
 										<option value="ollama" <?php selected( $ai_engine, 'ollama' ); ?>>Ollama (Local AI - Free)</option>
 									</select>
-									<p class="description"><?php _e( 'Selecciona quina IA vols utilitzar per analitzar els logs.', 'wp-ai-guard' ); ?></p>
+									<p class="description">
+										<strong><?php _e( 'Modo Online (Gemini):', 'wp-ai-guard' ); ?></strong> <?php _e( 'Màxima precisió, requereix internet i API Key.', 'wp-ai-guard' ); ?><br>
+										<strong><?php _e( 'Modo Local (Ollama):', 'wp-ai-guard' ); ?></strong> <?php _e( 'Privadesa total, gratuït, funciona sense internet directament en el teu servidor.', 'wp-ai-guard' ); ?>
+									</p>
 								</td>
 							</tr>
 							<tr class="gemini-settings" <?php echo $ai_engine !== 'gemini' ? 'style="display:none;"' : ''; ?>>

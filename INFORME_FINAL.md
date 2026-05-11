@@ -45,11 +45,27 @@ Segueix aquests passos per configurar l'entorn des de zero:
    - Busca **WP-AI-Guard** i clica a **Activar**.
 3. **Verificació:** Apareixerà un nou menú anomenat "AI Guard" a la barra lateral on podràs veure els logs i la configuració.
 
+### Pas 5: Instal·lació d'Ollama (IA Local i Gratuïta)
+Per utilitzar la versió gratuïta del plugin sense dependre de claus d'API externes:
+1. **Instal·lació:** Executa el següent comanda a la terminal:
+   ```bash
+   curl -fsSL https://ollama.com/install.sh | sh
+   ```
+2. **Descarrega del Model:** Descarrega el model Llama 3 (o el que prefereixis):
+   ```bash
+   ollama run llama3
+   ```
+3. **Configuració al Plugin:**
+   - Dins de WordPress, ves a **WP-AI-Guard > Configuració**.
+   - Selecciona **"Ollama (Local AI - Free)"** al desplegable d'AI Engine.
+   - Indica el nom del model (`llama3`) i guarda els canvis.
+
 ---
 
 ## 2. Resum del Projecte WP-AI-Guard
 
 El plugin **WP-AI-Guard** és una solució de seguretat intel·ligent per a WordPress que:
+- **Anàlisi Dual d'IA:** Permet triar entre **Google Gemini Pro** (Nuve) o **Ollama** (Local/Privat).
 - **Analitza el trànsit:** Detecta patrons d'atac SQLi i XSS en temps real.
 - **Puntuació de Risc:** Assigna un "Threat Score" a cada IP basat en el seu comportament.
 - **Bloqueig Automàtic:** Si una IP acumula més de 3 incidències amb un risc alt en una hora, és bloquejada automàticament.
