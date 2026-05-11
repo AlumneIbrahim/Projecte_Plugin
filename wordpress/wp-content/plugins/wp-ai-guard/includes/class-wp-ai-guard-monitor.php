@@ -112,8 +112,11 @@ class WP_AI_Guard_Monitor {
 		$ip           = $this->get_user_ip();
 		$url          = $_SERVER['REQUEST_URI'];
 		$post_data    = $_POST;
+		$get_data     = $_GET; // Added GET data monitoring
+		
 		$request_data = array(
 			'url'  => $url,
+			'get'  => $get_data,
 			'post' => $post_data,
 		);
 
@@ -140,14 +143,19 @@ class WP_AI_Guard_Monitor {
 	 * Check if the request contains suspicious patterns.
 	 */
 	private function check_suspicious_data( $data ) {
-		// Flatten the array to check all values
+		// Also check the raw URL for common patterns
+		$url = isset( $data['url'] ) ? urldecode( $data['url'] ) : '';
+		
+		// Flatten the array to check all values (GET and POST)
 		$values = $this->get_all_values( $data );
+		$values[] = $url; // Include decoded URL in the check
 		
 		$suspicious_patterns = array(
 			'/<[^>]*>/',           // HTML tags (XSS)
 			'/[\'"]/',              // Quotes
 			'/\b(SELECT|INSERT|UPDATE|DELETE|DROP|UNION|TRUNCATE)\b/i', // SQL Keywords
 			'/<script/i',           // Script tag
+			'/\.\.\//',             // Directory traversal (../)
 		);
 
 		foreach ( $values as $value ) {
