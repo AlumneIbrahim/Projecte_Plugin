@@ -61,19 +61,31 @@ class WP_AI_Guard_AI {
 		);
 
 		if ( is_wp_error( $response ) ) {
+			error_log( 'WP-AI-Guard [Gemini Error]: ' . $response->get_error_message() );
 			return false;
 		}
 
-		$data = json_decode( wp_remote_retrieve_body( $response ), true );
+		$body_content = wp_remote_retrieve_body( $response );
+		$data = json_decode( $body_content, true );
 		
 		if ( isset( $data['candidates'][0]['content']['parts'][0]['text'] ) ) {
 			$result_text = $data['candidates'][0]['content']['parts'][0]['text'];
-			$analysis    = json_decode( $result_text, true );
+			
+			// Extract JSON part in case the AI adds conversational text
+			if ( preg_match( '/\{.*\}/s', $result_text, $matches ) ) {
+				$result_text = $matches[0];
+			}
+
+			$analysis = json_decode( $result_text, true );
 
 			if ( $analysis ) {
 				$this->update_log_analysis( $log->id, $analysis );
 				return $analysis;
+			} else {
+				error_log( 'WP-AI-Guard [Gemini JSON Error]: Failed to parse analysis JSON. Raw text: ' . $data['candidates'][0]['content']['parts'][0]['text'] );
 			}
+		} else {
+			error_log( 'WP-AI-Guard [Gemini API Error]: Invalid response. Body: ' . $body_content );
 		}
 
 		return false;

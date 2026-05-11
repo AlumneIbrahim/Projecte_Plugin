@@ -51,18 +51,30 @@ class WP_AI_Guard_Ollama {
 		);
 
 		if ( is_wp_error( $response ) ) {
+			error_log( 'WP-AI-Guard [Ollama Error]: ' . $response->get_error_message() );
 			return false;
 		}
 
-		$data = json_decode( wp_remote_retrieve_body( $response ), true );
+		$body_content = wp_remote_retrieve_body( $response );
+		$data = json_decode( $body_content, true );
 		
 		if ( isset( $data['response'] ) ) {
-			$analysis = json_decode( $data['response'], true );
+			// Extract JSON from the response (sometimes AI adds text before/after)
+			$result_text = $data['response'];
+			if ( preg_match( '/\{.*\}/s', $result_text, $matches ) ) {
+				$result_text = $matches[0];
+			}
+			
+			$analysis = json_decode( $result_text, true );
 
 			if ( $analysis ) {
 				$this->update_log_analysis( $log->id, $analysis );
 				return $analysis;
+			} else {
+				error_log( 'WP-AI-Guard [Ollama JSON Error]: Failed to parse analysis JSON. Raw response: ' . $data['response'] );
 			}
+		} else {
+			error_log( 'WP-AI-Guard [Ollama API Error]: Invalid response format. Body: ' . $body_content );
 		}
 
 		return false;

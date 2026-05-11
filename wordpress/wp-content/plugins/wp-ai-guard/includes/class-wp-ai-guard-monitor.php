@@ -140,9 +140,9 @@ class WP_AI_Guard_Monitor {
 	 * Check if the request contains suspicious patterns.
 	 */
 	private function check_suspicious_data( $data ) {
-		$json_data = wp_json_encode( $data );
+		// Flatten the array to check all values
+		$values = $this->get_all_values( $data );
 		
-		// Patterns to look for: SQL injection, XSS characters, etc.
 		$suspicious_patterns = array(
 			'/<[^>]*>/',           // HTML tags (XSS)
 			'/[\'"]/',              // Quotes
@@ -150,13 +150,31 @@ class WP_AI_Guard_Monitor {
 			'/<script/i',           // Script tag
 		);
 
-		foreach ( $suspicious_patterns as $pattern ) {
-			if ( preg_match( $pattern, $json_data ) ) {
-				return true;
+		foreach ( $values as $value ) {
+			if ( ! is_string( $value ) ) continue;
+			foreach ( $suspicious_patterns as $pattern ) {
+				if ( preg_match( $pattern, $value ) ) {
+					return true;
+				}
 			}
 		}
 
 		return false;
+	}
+
+	/**
+	 * Recursively get all string values from an array.
+	 */
+	private function get_all_values( $array ) {
+		$values = array();
+		foreach ( $array as $val ) {
+			if ( is_array( $val ) ) {
+				$values = array_merge( $values, $this->get_all_values( $val ) );
+			} else {
+				$values[] = $val;
+			}
+		}
+		return $values;
 	}
 
 	/**
@@ -185,5 +203,8 @@ class WP_AI_Guard_Monitor {
 		// SCHEDULE ASYNCHRONOUS ANALYSIS (WP-CRON)
 		// This makes the site load instantly while the AI works in the background.
 		wp_schedule_single_event( time(), 'wpguard_async_ai_analysis', array( $log_id, $ip, $json_data ) );
+		
+		// Force trigger WP-Cron to start the analysis immediately
+		spawn_cron();
 	}
 }
