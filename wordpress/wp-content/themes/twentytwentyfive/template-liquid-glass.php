@@ -1,3 +1,8 @@
+<?php
+/*
+Template Name: Liquid Glass Landing
+*/
+?>
 <!DOCTYPE html>
 <html <?php language_attributes(); ?>>
 <head>
