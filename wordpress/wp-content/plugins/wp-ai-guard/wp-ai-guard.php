@@ -16,7 +16,6 @@ if ( ! defined( 'ABSPATH' ) ) {
 // Define constants.
 define( 'WP_AI_GUARD_VERSION', '0.1.0' );
 define( 'WP_AI_GUARD_PATH', plugin_dir_path( __FILE__ ) );
-define( 'WP_AI_LEARNING_MODE', true ); // Learning mode: log but don't block.
 
 // Include required files.
 require_once WP_AI_GUARD_PATH . 'includes/class-wp-ai-guard-db.php';
@@ -34,6 +33,8 @@ class WP_AI_Guard {
 	 * Constructor.
 	 */
 	public function __construct() {
+		add_action( 'init', array( $this, 'load_textdomain' ) );
+
 		// Register activation hook.
 		register_activation_hook( __FILE__, array( 'WP_AI_Guard_DB', 'create_table' ) );
 
@@ -46,6 +47,13 @@ class WP_AI_Guard {
 			$admin = new WP_AI_Guard_Admin();
 			$admin->init();
 		}
+	}
+
+	/**
+	 * Load plugin textdomain for translations.
+	 */
+	public function load_textdomain() {
+		load_plugin_textdomain( 'wp-ai-guard', false, dirname( plugin_basename( __FILE__ ) ) . '/languages' );
 	}
 }
 

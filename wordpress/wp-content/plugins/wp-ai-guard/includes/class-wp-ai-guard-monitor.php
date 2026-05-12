@@ -23,6 +23,26 @@ class WP_AI_Guard_Monitor {
 		
 		// Hook for asynchronous AI analysis via WP-Cron
 		add_action( 'wpguard_async_ai_analysis', array( $this, 'run_async_analysis' ), 10, 3 );
+
+		// Scheduled cleanup
+		if ( ! wp_next_scheduled( 'wpguard_daily_cleanup' ) ) {
+			wp_schedule_event( time(), 'daily', 'wpguard_daily_cleanup' );
+		}
+		add_action( 'wpguard_daily_cleanup', array( $this, 'cleanup_old_logs' ) );
+	}
+
+	/**
+	 * Cleanup old logs based on retention setting.
+	 */
+	public function cleanup_old_logs() {
+		global $wpdb;
+		$retention_days = get_option( 'wpguard_log_retention', '30' );
+		$table_name     = $wpdb->prefix . 'wpguard_logs';
+		
+		$wpdb->query( $wpdb->prepare(
+			"DELETE FROM $table_name WHERE created_at < DATE_SUB(NOW(), INTERVAL %d DAY)",
+			$retention_days
+		) );
 	}
 
 	/**
@@ -74,18 +94,23 @@ class WP_AI_Guard_Monitor {
 			return;
 		}
 
-		// 2. Learning Mode: If enabled, only log but never block.
-		if ( defined( 'WP_AI_LEARNING_MODE' ) && WP_AI_LEARNING_MODE ) {
+		$ip = $this->get_user_ip();
+		if ( ! $ip ) return;
+
+		// 2. Performance: Check if IP is already in the blocked cache (transient)
+		if ( get_transient( 'wpguard_blocked_' . $ip ) ) {
+			$this->block_access( $ip, 'Cached/Persistent' );
+		}
+
+		// 3. Learning Mode: If enabled, only log but never block.
+		if ( '1' === get_option( 'wpguard_learning_mode', '1' ) ) {
 			return;
 		}
 
 		global $wpdb;
-		$ip = $this->get_user_ip();
-		if ( ! $ip ) return;
-
 		$table_name = $wpdb->prefix . 'wpguard_logs';
 
-		// 3. Dynamic Threshold: Block only if more than 3 suspicious records in the last hour
+		// 4. Dynamic Threshold: Block only if more than 3 suspicious records in the last hour
 		// and the average threat score is greater than 8.
 		$one_hour_ago = gmdate( 'Y-m-d H:i:s', time() - HOUR_IN_SECONDS );
 		
@@ -98,13 +123,22 @@ class WP_AI_Guard_Monitor {
 		) );
 
 		if ( $stats && $stats->log_count > 3 && $stats->avg_score > 8 ) {
+			// Cache the block for 1 hour to reduce DB queries
+			set_transient( 'wpguard_blocked_' . $ip, true, HOUR_IN_SECONDS );
 			$this->send_block_notification( $ip, $stats->avg_score );
-			wp_die(
-				__( 'Access Denied: Your IP has been flagged by WP-AI-Guard due to persistent suspicious activity.', 'wp-ai-guard' ),
-				__( 'Security Block', 'wp-ai-guard' ),
-				array( 'response' => 403 )
-			);
+			$this->block_access( $ip, $stats->avg_score );
 		}
+	}
+
+	/**
+	 * Helper to block access and die.
+	 */
+	private function block_access( $ip, $score ) {
+		wp_die(
+			__( 'Access Denied: Your IP has been flagged by WP-AI-Guard due to persistent suspicious activity.', 'wp-ai-guard' ),
+			__( 'Security Block', 'wp-ai-guard' ),
+			array( 'response' => 403 )
+		);
 	}
 
 	/**

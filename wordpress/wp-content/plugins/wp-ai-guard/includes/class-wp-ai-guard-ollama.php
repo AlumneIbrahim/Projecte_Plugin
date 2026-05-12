@@ -27,17 +27,30 @@ class WP_AI_Guard_Ollama {
 	 */
 	public function analyze_log( $log ) {
 		$model = get_option( 'wp_ai_guard_ollama_model', 'llama3' );
+		$locale = get_locale();
 
 		$prompt = sprintf(
-			"Analitza aquest trànsit de WordPress i detecta si és un intent d'atac (SQLi, XSS, Directory Traversal, etc.).
-			DADES: IP: %s, URL: %s.
-			INSTRUCCIÓ: Avalua el risc de forma objectiva segons el contingut del log, independentment de si la IP és local o externa.
-			Respon EXCLUSIVAMENT amb JSON: {\"threat_level\": 0-10, \"type\": \"tipus\", \"explanation\": \"per què\"}.
-			Log: %s",
+			"Ets un expert en ciberseguretat de WordPress. Analitza aquest trànsit i detecta intents d'atac (SQLi, XSS, Path Traversal, etc.).
+			DADES DEL LOG:
+			IP: %s
+			URL: %s
+			Dades Request: %s
+
+			INSTRUCCIONS:
+			1. Avalua el risc de 0 a 10.
+			2. Identifica el tipus d'atac exactament.
+			3. Proporciona una explicació concisa i una RECOMANACIÓ d'acció per a l'administrador.
+
+			IMPORTANT: Respon en l'idioma amb codi de locale: %s.
+
+			Respon EXCLUSIVAMENT en format JSON:
+			{\"threat_level\": 0-10, \"type\": \"Nom Atac\", \"explanation\": \"Explicació + Acció recomanada\"}",
 			$log->ip,
 			$log->url ?? 'Desconeguda',
-			$log->request_data
+			$log->request_data,
+			$locale
 		);
+
 
 		$body = array(
 			'model'  => $model,
