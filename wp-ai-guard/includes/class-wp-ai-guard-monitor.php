@@ -1,0 +1,293 @@
+<?php
+/**
+ * Monitor handler for WP-AI-Guard.
+ *
+ * @package WP_AI_Guard
+ */
+
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
+/**
+ * Class WP_AI_Guard_Monitor
+ */
+class WP_AI_Guard_Monitor {
+
+	/**
+	 * Initialize the monitor hooks.
+	 */
+	public function init() {
+		add_action( 'init', array( $this, 'check_blocked_ips' ), 1 ); // High priority to block early
+		add_action( 'init', array( $this, 'analyze_request' ) );
+		
+		// Hook for asynchronous AI analysis via WP-Cron
+		add_action( 'wpguard_async_ai_analysis', array( $this, 'run_async_analysis' ), 10, 3 );
+
+		// Scheduled cleanup
+		if ( ! wp_next_scheduled( 'wpguard_daily_cleanup' ) ) {
+			wp_schedule_event( time(), 'daily', 'wpguard_daily_cleanup' );
+		}
+		add_action( 'wpguard_daily_cleanup', array( $this, 'cleanup_old_logs' ) );
+	}
+
+	/**
+	 * Cleanup old logs based on retention setting.
+	 */
+	public function cleanup_old_logs() {
+		global $wpdb;
+		$retention_days = get_option( 'wpguard_log_retention', '30' );
+		$table_name     = $wpdb->prefix . 'wpguard_logs';
+		
+		$wpdb->query( $wpdb->prepare(
+			"DELETE FROM $table_name WHERE created_at < DATE_SUB(NOW(), INTERVAL %d DAY)",
+			$retention_days
+		) );
+	}
+
+	/**
+	 * Run AI analysis asynchronously.
+	 */
+	public function run_async_analysis( $log_id, $ip, $request_data ) {
+		global $wpdb;
+		$table_name = $wpdb->prefix . 'wpguard_logs';
+
+		// Lock the row for processing to avoid dual analysis
+		$updated = $wpdb->update(
+			$table_name,
+			array( 'status' => 'processing' ),
+			array( 'id' => $log_id, 'status' => 'pending' )
+		);
+
+		if ( ! $updated ) {
+			return; // Already being processed or completed
+		}
+
+		$engine = get_option( 'wp_ai_guard_engine' );
+		if ( ! $engine ) {
+			return;
+		}
+
+		$log = (object) array(
+			'id'           => $log_id,
+			'ip'           => $ip,
+			'request_data' => $request_data,
+		);
+
+		$ai = ( 'ollama' === $engine ) ? new WP_AI_Guard_Ollama() : new WP_AI_Guard_AI();
+		$result = $ai->analyze_log( $log );
+
+		if ( $result ) {
+			$wpdb->update( $table_name, array( 'status' => 'completed' ), array( 'id' => $log_id ) );
+		} else {
+			// If analysis failed, set back to pending so it can be retried later
+			$wpdb->update( $table_name, array( 'status' => 'pending' ), array( 'id' => $log_id ) );
+		}
+	}
+
+	/**
+	 * Check if the current visitor IP is blocked based on threat score.
+	 */
+	public function check_blocked_ips() {
+		// 1. Whitelist: Never block logged-in administrators or CLI.
+		if ( ( function_exists( 'current_user_can' ) && current_user_can( 'manage_options' ) ) || ( defined( 'DOING_CRON' ) && DOING_CRON ) || php_sapi_name() === 'cli' ) {
+			return;
+		}
+
+		$ip = $this->get_user_ip();
+		if ( ! $ip ) return;
+
+		// 2. Performance: Check if IP is already in the blocked cache (transient)
+		if ( get_transient( 'wpguard_blocked_' . $ip ) ) {
+			$this->block_access( $ip, 'Cached/Persistent' );
+		}
+
+		// 3. Learning Mode: If enabled, only log but never block.
+		if ( '1' === get_option( 'wpguard_learning_mode', '1' ) ) {
+			return;
+		}
+
+		global $wpdb;
+		$table_name = $wpdb->prefix . 'wpguard_logs';
+
+		// 4. Dynamic Threshold: Block only if more than 3 suspicious records in the last hour
+		// and the average threat score is greater than 8.
+		$one_hour_ago = gmdate( 'Y-m-d H:i:s', time() - HOUR_IN_SECONDS );
+		
+		$stats = $wpdb->get_row( $wpdb->prepare(
+			"SELECT COUNT(*) as log_count, AVG(threat_score) as avg_score 
+			 FROM $table_name 
+			 WHERE ip = %s AND created_at >= %s",
+			$ip,
+			$one_hour_ago
+		) );
+
+		if ( $stats && $stats->log_count > 3 && $stats->avg_score > 8 ) {
+			// Cache the block for 1 hour to reduce DB queries
+			set_transient( 'wpguard_blocked_' . $ip, true, HOUR_IN_SECONDS );
+			$this->send_block_notification( $ip, $stats->avg_score );
+			$this->block_access( $ip, $stats->avg_score );
+		}
+	}
+
+	/**
+	 * Helper to block access and die.
+	 */
+	private function block_access( $ip, $score ) {
+		wp_die(
+			__( 'Access Denied: Your IP has been flagged by WP-AI-Guard due to persistent suspicious activity.', 'wp-ai-guard' ),
+			__( 'Security Block', 'wp-ai-guard' ),
+			array( 'response' => 403 )
+		);
+	}
+
+	/**
+	 * Send an email notification when an IP is blocked.
+	 */
+	private function send_block_notification( $ip, $threat_score ) {
+		$enabled = get_option( 'wpguard_notifications_enabled', '1' );
+		if ( '1' !== $enabled ) {
+			return;
+		}
+
+		$notification_email = get_option( 'wpguard_notification_email', get_option( 'admin_email' ) );
+		$subject            = sprintf( '[WP-AI-Guard] IP Blocked: %s', $ip );
+		$message            = sprintf(
+			"The following IP address has been blocked by WP-AI-Guard:\n\nIP: %s\nThreat Score: %s/10\nTime: %s\n\nPlease check the WP-AI-Guard dashboard for more details.",
+			$ip,
+			$threat_score,
+			current_time( 'mysql' )
+		);
+
+		wp_mail( $notification_email, $subject, $message );
+	}
+
+	/**
+	 * Analyze the incoming request for suspicious content.
+	 */
+	public function analyze_request() {
+		// Don't analyze admin or internal requests
+		if ( is_admin() || ( defined( 'DOING_AJAX' ) && DOING_AJAX ) || ( defined( 'DOING_CRON' ) && DOING_CRON ) ) {
+			return;
+		}
+
+		$ip           = $this->get_user_ip();
+		if ( ! $ip ) return;
+
+		$url          = $_SERVER['REQUEST_URI'];
+		$post_data    = $_POST;
+		$get_data     = $_GET; // Added GET data monitoring
+		
+		$request_data = array(
+			'url'  => $url,
+			'get'  => $get_data,
+			'post' => $post_data,
+		);
+
+		$is_suspicious = $this->check_suspicious_data( $request_data );
+
+		if ( $is_suspicious ) {
+			$this->log_suspicious_request( $ip, $request_data );
+		}
+	}
+
+	/**
+	 * Get the real user IP address.
+	 */
+	private function get_user_ip() {
+		if ( php_sapi_name() === 'cli' ) {
+			return '127.0.0.1';
+		}
+		
+		$ip_keys = array( 'HTTP_CLIENT_IP', 'HTTP_X_FORWARDED_FOR', 'HTTP_X_REAL_IP', 'REMOTE_ADDR' );
+		foreach ( $ip_keys as $key ) {
+			if ( ! empty( $_SERVER[ $key ] ) ) {
+				foreach ( explode( ',', $_SERVER[ $key ] ) as $ip ) {
+					$ip = trim( $ip );
+					if ( filter_var( $ip, FILTER_VALIDATE_IP ) ) {
+						return $ip;
+					}
+				}
+			}
+		}
+		return '0.0.0.0';
+	}
+
+	/**
+	 * Check if the request contains suspicious patterns.
+	 */
+	private function check_suspicious_data( $data ) {
+		// Also check the raw URL for common patterns
+		$url = isset( $data['url'] ) ? urldecode( $data['url'] ) : '';
+		
+		// Flatten the array to check all values (GET and POST)
+		$values = $this->get_all_values( $data );
+		$values[] = $url; // Include decoded URL in the check
+		
+		$suspicious_patterns = array(
+			'/<script.*?>.*?<\/script>/is', // Script tags with content
+			'/on\w+\s*=/i',                // Event handlers (onerror, onload, etc.)
+			'/\b(SELECT|INSERT|UPDATE|DELETE|DROP|UNION|TRUNCATE)\b\s+.*\bFROM\b/i', // More specific SQL SQL Injection
+			'/\bUNION\s+SELECT\b/i',       // Classic UNION SQLi
+			'/\.\.\//',                    // Directory traversal (../)
+			'/<iframe.*?>/i',              // Iframe injection
+			'/(base64_|eval\(|system\(|passthru\()/i', // PHP dangerous functions
+		);
+
+		foreach ( $values as $value ) {
+			if ( ! is_string( $value ) ) continue;
+			foreach ( $suspicious_patterns as $pattern ) {
+				if ( preg_match( $pattern, $value ) ) {
+					return true;
+				}
+			}
+		}
+
+		return false;
+	}
+
+	/**
+	 * Recursively get all string values from an array.
+	 */
+	private function get_all_values( $array ) {
+		$values = array();
+		foreach ( $array as $val ) {
+			if ( is_array( $val ) ) {
+				$values = array_merge( $values, $this->get_all_values( $val ) );
+			} else {
+				$values[] = $val;
+			}
+		}
+		return $values;
+	}
+
+	/**
+	 * Log the suspicious request to the database and schedule asynchronous AI analysis.
+	 */
+	private function log_suspicious_request( $ip, $data ) {
+		global $wpdb;
+
+		$table_name = $wpdb->prefix . 'wpguard_logs';
+		$json_data  = wp_json_encode( $data );
+
+		$initial_score = 5; // Default suspicious score until AI confirms
+		
+		$wpdb->insert(
+			$table_name,
+			array(
+				'ip'           => $ip,
+				'request_data' => $json_data,
+				'threat_score' => $initial_score,
+				'status'       => 'pending',
+				'created_at'   => current_time( 'mysql' ),
+			),
+			array( '%s', '%s', '%d', '%s', '%s' )
+		);
+
+		$log_id = $wpdb->insert_id;
+
+		// Always schedule AI analysis for suspicious requests
+		wp_schedule_single_event( time(), 'wpguard_async_ai_analysis', array( $log_id, $ip, $json_data ) );
+		spawn_cron();
+	}
+}
