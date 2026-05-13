@@ -158,84 +158,192 @@ class WP_AI_Guard_Admin {
 		?>
 		<style>
 			:root {
-				--wpguard-primary: #2271b1;
-				--wpguard-danger: #d63638;
-				--wpguard-warning: #9a5b13;
-				--wpguard-success: #00a32a;
-				--wpguard-bg-soft: #f0f6fb;
-				--wpguard-card-shadow: 0 4px 12px rgba(0,0,0,0.08);
+				--wpguard-primary: #3b82f6;
+				--wpguard-danger: #ef4444;
+				--wpguard-warning: #f59e0b;
+				--wpguard-success: #10b981;
+				--wpguard-glass-bg: rgba(255, 255, 255, 0.7);
+				--wpguard-glass-border: rgba(255, 255, 255, 0.4);
+				--wpguard-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.1);
 			}
-			.wpguard-header { background: #fff; padding: 24px; border-bottom: 1px solid #dcdcde; margin: -20px -20px 20px -20px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
-			.wpguard-header h1 { margin: 0; display: flex; align-items: center; gap: 12px; font-weight: 700; color: #1d2327; }
-			.wpguard-header h1 span { color: var(--wpguard-primary); }
-			.wpguard-version { background: var(--wpguard-bg-soft); padding: 4px 10px; border-radius: 6px; font-size: 12px; color: var(--wpguard-primary); font-weight: 600; }
-			
-			.wpguard-nav-tab-wrapper { margin-bottom: 24px; border-bottom: 2px solid #dcdcde; }
-			.nav-tab-active { border-bottom: 2px solid var(--wpguard-primary) !important; background: transparent !important; color: var(--wpguard-primary) !important; }
-			
-			.wpguard-stats { display: flex; gap: 20px; margin-bottom: 24px; }
-			.wpguard-stat-card { background: #fff; padding: 24px; border-radius: 12px; box-shadow: var(--wpguard-card-shadow); flex: 1; border: 1px solid #e0e0e0; transition: transform 0.2s; }
-			.wpguard-stat-card:hover { transform: translateY(-2px); }
-			.wpguard-stat-card h3 { margin: 0 0 8px 0; font-size: 13px; color: #646970; text-transform: uppercase; letter-spacing: 0.5px; }
-			.wpguard-stat-card .value { font-size: 32px; font-weight: 800; color: #1d2327; }
-			.wpguard-stat-card.blocked { border-top: 4px solid var(--wpguard-danger); }
-			.wpguard-stat-card.threat { border-top: 4px solid var(--wpguard-warning); }
-			.wpguard-stat-card.total { border-top: 4px solid var(--wpguard-primary); }
 
-			.wpguard-live-card { background: #1e1e1e; color: #fff; border-radius: 12px; padding: 24px; margin-bottom: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.15); border: 1px solid #333; }
-			.wpguard-live-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 1px solid #333; padding-bottom: 12px; }
-			.wpguard-live-title { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 16px; color: #e0e0e0; }
+			.wpguard-admin-wrap {
+				font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+				padding: 20px;
+				background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+				min-height: calc(100vh - 100px);
+				border-radius: 12px;
+				margin-right: 20px;
+				margin-top: 20px;
+			}
+
+			.wpguard-header { 
+				background: var(--wpguard-glass-bg); 
+				backdrop-filter: blur(12px);
+				-webkit-backdrop-filter: blur(12px);
+				padding: 30px; 
+				border: 1px solid var(--wpguard-glass-border);
+				border-radius: 20px;
+				margin-bottom: 25px; 
+				display: flex; 
+				align-items: center; 
+				justify-content: space-between; 
+				box-shadow: var(--wpguard-shadow);
+			}
+			.wpguard-header h1 { 
+				margin: 0; 
+				display: flex; 
+				align-items: center; 
+				gap: 15px; 
+				font-weight: 800; 
+				color: #1e293b; 
+				font-size: 28px;
+			}
+			.wpguard-header h1 span.dashicons { 
+				font-size: 36px; 
+				width: 36px; 
+				height: 36px; 
+				color: var(--wpguard-primary);
+				text-shadow: 0 0 20px rgba(59, 130, 246, 0.3);
+			}
+			.wpguard-version { 
+				background: rgba(59, 130, 246, 0.1); 
+				padding: 6px 14px; 
+				border-radius: 50px; 
+				font-size: 13px; 
+				color: var(--wpguard-primary); 
+				font-weight: 700;
+				border: 1px solid rgba(59, 130, 246, 0.2);
+			}
+			
+			.wpguard-nav-tab-wrapper { 
+				margin-bottom: 30px; 
+				border: none;
+				display: flex;
+				gap: 10px;
+				padding: 5px;
+				background: rgba(0,0,0,0.05);
+				border-radius: 12px;
+				width: fit-content;
+			}
+			.wpguard-nav-tab-wrapper .nav-tab {
+				margin: 0;
+				border: none !important;
+				background: transparent !important;
+				padding: 10px 20px !important;
+				border-radius: 8px !important;
+				font-weight: 600;
+				transition: all 0.3s ease;
+				color: #64748b;
+			}
+			.wpguard-nav-tab-wrapper .nav-tab-active { 
+				background: #fff !important; 
+				color: var(--wpguard-primary) !important; 
+				box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+			}
+			
+			.wpguard-stats { display: flex; gap: 20px; margin-bottom: 30px; }
+			.wpguard-stat-card { 
+				background: var(--wpguard-glass-bg); 
+				backdrop-filter: blur(8px);
+				padding: 25px; 
+				border-radius: 20px; 
+				box-shadow: var(--wpguard-shadow); 
+				flex: 1; 
+				border: 1px solid var(--wpguard-glass-border);
+				transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+			}
+			.wpguard-stat-card:hover { transform: translateY(-5px); box-shadow: 0 12px 40px rgba(0,0,0,0.12); }
+			.wpguard-stat-card h3 { margin: 0 0 10px 0; font-size: 14px; color: #64748b; text-transform: uppercase; letter-spacing: 1px; font-weight: 700; }
+			.wpguard-stat-card .value { font-size: 36px; font-weight: 900; color: #0f172a; }
+			
+			.wpguard-live-card { 
+				background: rgba(15, 23, 42, 0.9); 
+				backdrop-filter: blur(12px);
+				color: #fff; 
+				border-radius: 20px; 
+				padding: 25px; 
+				margin-bottom: 30px; 
+				box-shadow: 0 20px 50px rgba(0,0,0,0.2); 
+				border: 1px solid rgba(255,255,255,0.1); 
+			}
+			.wpguard-live-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 15px; }
+			.wpguard-live-title { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 18px; color: #f8fafc; }
 			
 			#wpguard-console { 
-				font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
-				font-size: 13px; 
-				line-height: 1.6;
-				height: 180px; 
+				font-family: 'JetBrains Mono', 'Fira Code', monospace;
+				font-size: 14px; 
+				line-height: 1.7;
+				height: 220px; 
 				overflow-y: auto; 
-				background: rgba(0,0,0,0.3); 
-				color: #a9b7c6; 
-				padding: 16px; 
-				border-radius: 8px;
-				border: 1px solid #444;
+				background: rgba(0,0,0,0.4); 
+				color: #e2e8f0; 
+				padding: 20px; 
+				border-radius: 12px;
+				border: 1px solid rgba(255,255,255,0.05);
 			}
-			.console-line { margin-bottom: 4px; border-left: 2px solid transparent; padding-left: 8px; }
-			.console-info { color: #569cd6; }
-			.console-success { color: #6a9955; border-left-color: #6a9955; }
-			.console-warning { color: #ce9178; border-left-color: #ce9178; }
-			.console-accent { color: #b5cea8; }
+			.console-line { margin-bottom: 6px; padding-left: 10px; border-left: 3px solid transparent; }
+			.console-info { color: #60a5fa; }
+			.console-success { color: #4ade80; border-left-color: #4ade80; }
+			.console-warning { color: #fbbf24; border-left-color: #fbbf24; }
+			.console-accent { color: #94a3b8; font-weight: bold; }
 
-			.wpguard-table-card { background: #fff; border-radius: 12px; box-shadow: var(--wpguard-card-shadow); border: 1px solid #e0e0e0; overflow: hidden; }
-			.wpguard-table-card h2 { padding: 20px 24px; margin: 0; background: #fafafa; border-bottom: 1px solid #e0e0e0; font-size: 16px; }
+			.wpguard-table-card { 
+				background: var(--wpguard-glass-bg); 
+				backdrop-filter: blur(8px);
+				border-radius: 20px; 
+				box-shadow: var(--wpguard-shadow); 
+				border: 1px solid var(--wpguard-glass-border); 
+				overflow: hidden; 
+			}
+			.wpguard-table-card h2 { padding: 25px 30px; margin: 0; background: rgba(255,255,255,0.3); border-bottom: 1px solid var(--wpguard-glass-border); font-size: 18px; font-weight: 800; color: #1e293b; }
 			
-			.widefat { border: none !important; box-shadow: none !important; }
-			.widefat thead tr th { background: #fafafa !important; padding: 16px 24px !important; color: #646970 !important; font-weight: 600 !important; border-bottom: 2px solid #f0f0f1 !important; }
-			.widefat tbody tr td { padding: 16px 24px !important; vertical-align: middle !important; border-bottom: 1px solid #f0f0f1 !important; }
+			.widefat { background: transparent !important; border: none !important; }
+			.widefat thead tr th { background: rgba(255,255,255,0.5) !important; padding: 18px 30px !important; color: #475569 !important; font-weight: 700 !important; text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px; }
+			.widefat tbody tr td { padding: 18px 30px !important; vertical-align: middle !important; border-bottom: 1px solid rgba(0,0,0,0.05) !important; color: #334155; }
+			.widefat tbody tr:hover { background: rgba(255,255,255,0.3) !important; }
 			
-			.wpguard-badge { padding: 6px 12px; border-radius: 20px; font-size: 11px; font-weight: 700; display: inline-flex; align-items: center; gap: 4px; }
-			.wpguard-badge-high { background: #fff1f0; color: #cf1322; border: 1px solid #ffa39e; }
-			.wpguard-badge-medium { background: #fff7e6; color: #d46b08; border: 1px solid #ffd591; }
-			.wpguard-badge-low { background: #f6ffed; color: #389e0d; border: 1px solid #b7eb8f; }
+			.wpguard-badge { padding: 8px 14px; border-radius: 50px; font-size: 12px; font-weight: 800; display: inline-flex; align-items: center; gap: 6px; }
+			.wpguard-badge-high { background: #fee2e2; color: #dc2626; border: 1px solid #fecaca; }
+			.wpguard-badge-medium { background: #fef3c7; color: #d97706; border: 1px solid #fde68a; }
+			.wpguard-badge-low { background: #dcfce7; color: #16a34a; border: 1px solid #bbf7d0; }
 			
-			.ai-analysis-text { line-height: 1.5; color: #2c3338; font-size: 13px; }
-			.ai-type-tag { font-weight: 700; color: var(--wpguard-primary); margin-right: 6px; }
+			/* Guide Styles */
+			.wpguard-guide-container { display: grid; grid-template-columns: 2fr 1fr; gap: 30px; }
+			.wpguard-guide-main section { margin-bottom: 40px; }
+			.wpguard-guide-main h3 { font-size: 22px; color: #1e293b; margin-bottom: 15px; display: flex; align-items: center; gap: 10px; }
+			.wpguard-guide-main h3 span { color: var(--wpguard-primary); }
+			.wpguard-guide-main p { font-size: 16px; line-height: 1.6; color: #475569; }
+			.wpguard-step { background: #fff; padding: 25px; border-radius: 15px; margin-bottom: 20px; border: 1px solid #e2e8f0; display: flex; gap: 20px; }
+			.step-number { background: var(--wpguard-primary); color: #fff; width: 35px; height: 35px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 800; flex-shrink: 0; }
+			.step-content h4 { margin: 0 0 10px 0; font-size: 18px; color: #1e293b; }
 			
-			@keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
-			.live-dot { height: 8px; width: 8px; background-color: #ff4d4f; border-radius: 50%; display: inline-block; animation: pulse 1.5s infinite; }
+			.wpguard-sidebar-card { background: #fff; padding: 25px; border-radius: 20px; border: 1px solid #e2e8f0; margin-bottom: 25px; }
+			.wpguard-sidebar-card h4 { margin: 0 0 15px 0; color: #1e293b; font-size: 16px; border-bottom: 2px solid #f1f5f9; padding-bottom: 10px; }
+			.wpguard-feature-list { list-style: none; padding: 0; margin: 0; }
+			.wpguard-feature-list li { padding: 10px 0; display: flex; align-items: center; gap: 10px; color: #475569; border-bottom: 1px solid #f1f5f9; }
+			.wpguard-feature-list li span { color: var(--wpguard-success); font-weight: bold; }
+
+			code { background: #f1f5f9; padding: 3px 6px; border-radius: 4px; font-family: monospace; color: #e11d48; }
+
+			@keyframes pulse { 0% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.2); opacity: 0.5; } 100% { transform: scale(1); opacity: 1; } }
+			.live-dot { height: 10px; width: 10px; background-color: #ef4444; border-radius: 50%; display: inline-block; animation: pulse 2s infinite; box-shadow: 0 0 10px #ef4444; }
 		</style>
 
-		<div class="wrap">
+		<div class="wrap wpguard-admin-wrap">
 			<div class="wpguard-header">
 				<h1>
-					<span class="dashicons dashicons-shield-alt" style="font-size: 30px; width: 30px; height: 30px;"></span>
+					<span class="dashicons dashicons-shield-alt"></span>
 					WP-AI-Guard
 				</h1>
 				<span class="wpguard-version">v<?php echo WP_AI_GUARD_VERSION; ?></span>
 			</div>
 
-			<h2 class="nav-tab-wrapper wpguard-nav-tab-wrapper">
+			<div class="wpguard-nav-tab-wrapper">
 				<a href="?page=wp-ai-guard-status&tab=dashboard" class="nav-tab <?php echo $active_tab == 'dashboard' ? 'nav-tab-active' : ''; ?>"><?php _e( 'Tauler de Control', 'wp-ai-guard' ); ?></a>
+				<a href="?page=wp-ai-guard-status&tab=guia" class="nav-tab <?php echo $active_tab == 'guia' ? 'nav-tab-active' : ''; ?>"><?php _e( 'Guia d\'Inici', 'wp-ai-guard' ); ?></a>
 				<a href="?page=wp-ai-guard-status&tab=settings" class="nav-tab <?php echo $active_tab == 'settings' ? 'nav-tab-active' : ''; ?>"><?php _e( 'Configuració', 'wp-ai-guard' ); ?></a>
-			</h2>
+			</div>
 
 			<?php if ( 'dashboard' === $active_tab ) : ?>
 				<?php
@@ -243,21 +351,20 @@ class WP_AI_Guard_Admin {
 				$total_logs = $wpdb->get_var( "SELECT COUNT(*) FROM $table_name" );
 				$total_blocked = $wpdb->get_var( "SELECT COUNT(DISTINCT ip) FROM $table_name WHERE threat_score > 7" );
 				$avg_threat = $wpdb->get_var( "SELECT AVG(threat_score) FROM $table_name" );
-				$logs = $wpdb->get_results( "SELECT * FROM $table_name ORDER BY created_at DESC LIMIT 50" );
 				?>
 				<div class="wpguard-dashboard">
 					<div class="wpguard-stats">
-						<div class="wpguard-stat-card total">
+						<div class="wpguard-stat-card">
 							<h3><?php _e( 'Esdeveniments totals', 'wp-ai-guard' ); ?></h3>
 							<div class="value"><?php echo number_format( $total_logs ); ?></div>
 						</div>
-						<div class="wpguard-stat-card blocked">
+						<div class="wpguard-stat-card" style="border-bottom: 4px solid var(--wpguard-danger);">
 							<h3><?php _e( 'IPs Bloquejades', 'wp-ai-guard' ); ?></h3>
 							<div class="value"><?php echo number_format( $total_blocked ); ?></div>
 						</div>
-						<div class="wpguard-stat-card threat">
+						<div class="wpguard-stat-card" style="border-bottom: 4px solid var(--wpguard-warning);">
 							<h3><?php _e( 'Risc Mitjà', 'wp-ai-guard' ); ?></h3>
-							<div class="value"><?php echo round( $avg_threat, 1 ); ?><small style="font-size: 14px; color: #646970;">/10</small></div>
+							<div class="value"><?php echo round( $avg_threat, 1 ); ?><small style="font-size: 14px; color: #64748b;">/10</small></div>
 						</div>
 					</div>
 
@@ -268,9 +375,9 @@ class WP_AI_Guard_Admin {
 								<?php _e( 'Monitor d\'Intel·ligència en Temps Real', 'wp-ai-guard' ); ?>
 							</div>
 							<div style="display: flex; align-items: center; gap: 12px;">
-								<div id="wpguard-live-indicator" style="font-size: 11px; color: #ff4d4f; font-weight: 700; letter-spacing: 1px; display: flex; align-items: center; gap: 6px;">
+								<div id="wpguard-live-indicator" style="font-size: 11px; color: #ef4444; font-weight: 800; letter-spacing: 2px; display: flex; align-items: center; gap: 8px;">
 									<span class="live-dot"></span>
-									FEED EN VIU
+									LIVE FEED
 								</div>
 							</div>
 						</div>
@@ -285,7 +392,7 @@ class WP_AI_Guard_Admin {
 						<table class="widefat fixed striped">
 							<thead>
 								<tr>
-									<th style="width: 160px;"><?php _e( 'Data i Hora', 'wp-ai-guard' ); ?></th>
+									<th style="width: 180px;"><?php _e( 'Data i Hora', 'wp-ai-guard' ); ?></th>
 									<th style="width: 140px;"><?php _e( 'Adreça IP', 'wp-ai-guard' ); ?></th>
 									<th style="width: 120px;"><?php _e( 'Nivell de Risc', 'wp-ai-guard' ); ?></th>
 									<th><?php _e( 'Objectiu (URL)', 'wp-ai-guard' ); ?></th>
@@ -293,7 +400,7 @@ class WP_AI_Guard_Admin {
 								</tr>
 							</thead>
 							<tbody id="wpguard-log-body">
-								<tr><td colspan="5" style="text-align: center; padding: 40px !important; color: #646970;"><?php _e( 'Sincronitzant amb el servidor...', 'wp-ai-guard' ); ?></td></tr>
+								<tr><td colspan="5" style="text-align: center; padding: 60px !important; color: #64748b; font-style: italic;"><?php _e( 'Sincronitzant amb el servidor neural...', 'wp-ai-guard' ); ?></td></tr>
 							</tbody>
 						</table>
 					</div>
@@ -342,11 +449,11 @@ class WP_AI_Guard_Admin {
 									}
 								}
 
-								const rowHtml = `<tr id="log-${log.id}" style="${(log.status !== 'completed') ? 'background: #fffbe6;' : ''}">
-									<td style="color: #646970; font-size: 12px;">${log.created_at}</td>
+								const rowHtml = `<tr id="log-${log.id}" class="${(log.status !== 'completed') ? 'wpguard-pending-row' : ''}">
+									<td style="color: #64748b; font-size: 12px; font-weight: 500;">${log.created_at}</td>
 									<td><strong>${log.ip}</strong></td>
 									<td>${log.badge_html}</td>
-									<td style="font-size:11px; font-family:monospace; color: #2271b1;">${log.url}</td>
+									<td style="font-size:11px; font-family:'JetBrains Mono', monospace; color: var(--wpguard-primary);">${log.url}</td>
 									<td class="ai-cell">${aiContent}</td>
 								</tr>`;
 
@@ -407,70 +514,138 @@ class WP_AI_Guard_Admin {
 					</script>
 				</div>
 
+			<?php elseif ( 'guia' === $active_tab ) : ?>
+				<div class="wpguard-guide-container">
+					<div class="wpguard-guide-main">
+						<section>
+							<h3><span class="dashicons dashicons-welcome-learn-more"></span> Benvingut a WP-AI-Guard</h3>
+							<p>Aquest connector utilitza models d'Intel·ligència Artificial d'última generació per protegir el teu WordPress. A diferència dels tallafocs tradicionals basats en regles estàtiques, WP-AI-Guard "entén" el context de les peticions i pot detectar atacs complexos o variacions noves (Zero-Day).</p>
+						</section>
+
+						<section>
+							<h3><span class="dashicons dashicons-hammer"></span> Passos per a la instal·lació i configuració</h3>
+							
+							<div class="wpguard-step">
+								<div class="step-number">1</div>
+								<div class="step-content">
+									<h4>Tria el teu motor d'IA</h4>
+									<p>Ves a la pestanya de <strong>Configuració</strong>. Tens dues opcions principals:</p>
+									<ul>
+										<li><strong>Google Gemini:</strong> El més potent i fàcil de configurar. Requereix una API Key gratuïta.</li>
+										<li><strong>Ollama:</strong> Per a privadesa total. Executa la IA directament al teu servidor. Requereix tenir Ollama instal·lat al sistema.</li>
+									</ul>
+								</div>
+							</div>
+
+							<div class="wpguard-step">
+								<div class="step-number">2</div>
+								<div class="step-content">
+									<h4>Configura l'API Key (Si uses Gemini)</h4>
+									<p>Aconsegueix la teva clau a <a href="https://aistudio.google.com/" target="_blank">Google AI Studio</a> i enganxa-la al camp corresponent. També pots definir-la al teu <code>wp-config.php</code>:</p>
+									<code>define( 'WP_AI_GUARD_API_KEY', 'la_teva_clau' );</code>
+								</div>
+							</div>
+
+							<div class="wpguard-step">
+								<div class="step-number">3</div>
+								<div class="step-content">
+									<h4>Modo Aprenentatge vs Bloqueig</h4>
+									<p>Per defecte, el connector s'instal·la en <strong>Modo Aprenentatge</strong>. Això vol dir que registrarà els atacs però NO bloquejarà els usuaris. Recomanem mantenir-ho així uns dies per verificar que no hi hagi falsos positius.</p>
+								</div>
+							</div>
+
+							<div class="wpguard-step">
+								<div class="step-number">4</div>
+								<div class="step-content">
+									<h4>Monitoritza en temps real</h4>
+									<p>Torna al <strong>Tauler de Control</strong>. Veuràs una consola tipus terminal. Quan algú intenti atacar la teva web, veuràs com la IA analitza la petició en temps real i dóna un veredicte.</p>
+								</div>
+							</div>
+						</section>
+
+						<section>
+							<h3><span class="dashicons dashicons-lightbulb"></span> Tutorial d'ús</h3>
+							<p>Un cop configurat, no cal que facis res més. WP-AI-Guard treballa en segon pla:</p>
+							<ol>
+								<li><strong>Detecció:</strong> El monitor detecta patrons sospitosos (SQLi, XSS, Path Traversal).</li>
+								<li><strong>Anàlisi:</strong> Si la petició sembla maliciosa, s'envia a la IA.</li>
+								<li><strong>Decisió:</strong> Si la puntuació és superior a 7, la IP es marca per bloqueig.</li>
+								<li><strong>Acció:</strong> La pròxima vegada que aquesta IP intenti accedir, rebrà un error 403 Forbidden.</li>
+							</ol>
+						</section>
+					</div>
+
+					<div class="wpguard-guide-sidebar">
+						<div class="wpguard-sidebar-card">
+							<h4>Característiques Clau</h4>
+							<ul class="wpguard-feature-list">
+								<li><span>✓</span> Anàlisi Neuronal</li>
+								<li><span>✓</span> Bloqueig Automàtic</li>
+								<li><span>✓</span> Suport Ollama Local</li>
+								<li><span>✓</span> Alertes per Email</li>
+								<li><span>✓</span> Historial de Logs</li>
+							</ul>
+						</div>
+
+						<div class="wpguard-sidebar-card" style="background: #f0f9ff; border-color: #bae6fd;">
+							<h4 style="color: #0369a1;">Necessites ajuda?</h4>
+							<p style="font-size: 13px; color: #0c4a6e;">Si trobes algun problema o vols suggerir una millora, pots contactar amb l'equip de seguretat o revisar la documentació tècnica al directori <code>docs/</code> del projecte.</p>
+						</div>
+					</div>
+				</div>
+
 			<?php else : ?>
-				<div class="card" style="max-width: 100%;">
-					<h2><?php _e( 'Configuració del Sistema', 'wp-ai-guard' ); ?></h2>
+				<div class="wpguard-table-card" style="padding: 30px;">
+					<h2 style="background: transparent; padding: 0 0 20px 0;"><?php _e( 'Configuració del Sistema', 'wp-ai-guard' ); ?></h2>
 					<form method="post" action="">
 						<?php wp_nonce_field( 'wpguard_save_settings_action' ); ?>
 						<table class="form-table">
 							<tr>
-								<th scope="row"><?php _e( 'AI Engine', 'wp-ai-guard' ); ?></th>
+								<th scope="row"><?php _e( 'Motor d\'IA', 'wp-ai-guard' ); ?></th>
 								<td>
-									<select name="ai_engine" id="ai_engine">
-										<option value="gemini" <?php selected( $ai_engine, 'gemini' ); ?>>Google Gemini (Online/API)</option>
-										<option value="ollama" <?php selected( $ai_engine, 'ollama' ); ?>>Ollama (Local AI - Free)</option>
+									<select name="ai_engine" id="ai_engine" style="min-width: 250px; padding: 8px; border-radius: 8px;">
+										<option value="gemini" <?php selected( $ai_engine, 'gemini' ); ?>>Google Gemini (Online API)</option>
+										<option value="ollama" <?php selected( $ai_engine, 'ollama' ); ?>>Ollama (Local AI - 100% Privat)</option>
 									</select>
-									<p class="description">
-										<strong><?php _e( 'Modo Online (Gemini):', 'wp-ai-guard' ); ?></strong> <?php _e( 'Màxima precisió, requereix internet i API Key.', 'wp-ai-guard' ); ?><br>
-										<strong><?php _e( 'Modo Local (Ollama):', 'wp-ai-guard' ); ?></strong> <?php _e( 'Privadesa total, gratuït, funciona sense internet directament en el teu servidor.', 'wp-ai-guard' ); ?>
+									<p class="description" style="margin-top: 10px;">
+										<span style="color: var(--wpguard-primary); font-weight: bold;">Gemini:</span> Màxima potència, requereix internet.<br>
+										<span style="color: var(--wpguard-success); font-weight: bold;">Ollama:</span> Màxima privadesa, funciona offline.
 									</p>
 								</td>
 							</tr>
 							<tr class="gemini-settings" <?php echo $ai_engine !== 'gemini' ? 'style="display:none;"' : ''; ?>>
 								<th scope="row"><?php _e( 'Gemini API Key', 'wp-ai-guard' ); ?></th>
 								<td>
-									<input name="gemini_api_key" type="password" id="gemini_api_key" value="<?php echo esc_attr( $api_key ); ?>" class="regular-text">
-									<p class="description"><?php _e( 'Clau de l\'API per a l\'anàlisi amb Google Gemini.', 'wp-ai-guard' ); ?></p>
+									<input name="gemini_api_key" type="password" id="gemini_api_key" value="<?php echo esc_attr( $api_key ); ?>" class="regular-text" style="border-radius: 8px; padding: 8px;">
 								</td>
 							</tr>
 							<tr class="ollama-settings" <?php echo $ai_engine !== 'ollama' ? 'style="display:none;"' : ''; ?>>
-								<th scope="row"><?php _e( 'Ollama Model', 'wp-ai-guard' ); ?></th>
+								<th scope="row"><?php _e( 'Model d\'Ollama', 'wp-ai-guard' ); ?></th>
 								<td>
-									<input name="ollama_model" type="text" id="ollama_model" value="<?php echo esc_attr( $ollama_model ); ?>" class="regular-text">
-									<p class="description"><?php _e( 'Nom del model instal·lat a Ollama (ex: llama3, mistral).', 'wp-ai-guard' ); ?></p>
+									<input name="ollama_model" type="text" id="ollama_model" value="<?php echo esc_attr( $ollama_model ); ?>" class="regular-text" placeholder="ex: llama3" style="border-radius: 8px; padding: 8px;">
 								</td>
 							</tr>
 							<tr>
-								<th scope="row"><?php _e( 'Modo de Seguretat', 'wp-ai-guard' ); ?></th>
+								<th scope="row"><?php _e( 'Mode de Seguretat', 'wp-ai-guard' ); ?></th>
 								<td>
-									<label for="learning_mode">
+									<label class="switch">
 										<input name="learning_mode" type="checkbox" id="learning_mode" value="1" <?php checked( $learning_mode, '1' ); ?>>
-										<?php _e( 'Activa el "Modo Aprenentatge" (no bloqueja res, només registra).', 'wp-ai-guard' ); ?>
+										<span class="slider round"></span>
+										<span style="margin-left: 10px; font-weight: 500;"><?php _e( 'Activar Mode Aprenentatge (Només registrar)', 'wp-ai-guard' ); ?></span>
 									</label>
-									<p class="description"><?php _e( 'Desactiva aquesta opció per començar a bloquejar IPs malicioses automàticament.', 'wp-ai-guard' ); ?></p>
 								</td>
 							</tr>
 							<tr>
 								<th scope="row"><?php _e( 'Retenció de Logs', 'wp-ai-guard' ); ?></th>
 								<td>
-									<input name="log_retention" type="number" id="log_retention" value="<?php echo esc_attr( $log_retention ); ?>" class="small-text"> dies
-									<p class="description"><?php _e( 'Els logs més antics s\'esborraran automàticament.', 'wp-ai-guard' ); ?></p>
+									<input name="log_retention" type="number" id="log_retention" value="<?php echo esc_attr( $log_retention ); ?>" class="small-text" style="border-radius: 8px; padding: 5px;"> dies
 								</td>
 							</tr>
 							<tr>
-								<th scope="row"><?php _e( 'Alertes per Email', 'wp-ai-guard' ); ?></th>
+								<th scope="row"><?php _e( 'Notificacions per Email', 'wp-ai-guard' ); ?></th>
 								<td>
-									<label for="notifications_enabled">
-										<input name="notifications_enabled" type="checkbox" id="notifications_enabled" value="1" <?php checked( $notifications_enabled, '1' ); ?>>
-										<?php _e( 'Envia un correu quan una IP sigui bloquejada.', 'wp-ai-guard' ); ?>
-									</label>
-								</td>
-							</tr>
-							<tr>
-								<th scope="row"><?php _e( 'Email de Notificació', 'wp-ai-guard' ); ?></th>
-								<td>
-									<input name="notification_email" type="email" id="notification_email" value="<?php echo esc_attr( $notification_email ); ?>" class="regular-text">
-									<p class="description"><?php _e( 'Direcció on s\'enviaran les alertes de seguretat.', 'wp-ai-guard' ); ?></p>
+									<input name="notifications_enabled" type="checkbox" id="notifications_enabled" value="1" <?php checked( $notifications_enabled, '1' ); ?>>
+									<input name="notification_email" type="email" id="notification_email" value="<?php echo esc_attr( $notification_email ); ?>" class="regular-text" placeholder="email@exemple.com" style="border-radius: 8px; padding: 8px;">
 								</td>
 							</tr>
 						</table>
@@ -481,7 +656,9 @@ class WP_AI_Guard_Admin {
 								document.querySelector('.ollama-settings').style.display = engine === 'ollama' ? '' : 'none';
 							});
 						</script>
-						<?php submit_button( __( 'Guardar Configuració', 'wp-ai-guard' ), 'primary', 'wpguard_save_settings' ); ?>
+						<div style="margin-top: 30px;">
+							<?php submit_button( __( 'Guardar Canvis', 'wp-ai-guard' ), 'primary large', 'wpguard_save_settings', true, array('style' => 'border-radius: 12px; padding: 12px 30px; font-weight: bold; background: var(--wpguard-primary); border: none; box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);') ); ?>
+						</div>
 					</form>
 				</div>
 			<?php endif; ?>
