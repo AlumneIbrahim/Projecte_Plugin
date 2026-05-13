@@ -308,6 +308,17 @@ class WP_AI_Guard_Admin {
 			.wpguard-badge-medium { background: #fef3c7; color: #d97706; border: 1px solid #fde68a; }
 			.wpguard-badge-low { background: #dcfce7; color: #16a34a; border: 1px solid #bbf7d0; }
 			
+			.url-cell { 
+				font-size: 11px; 
+				font-family: 'JetBrains Mono', monospace; 
+				color: var(--wpguard-primary); 
+				word-break: break-all; 
+				max-width: 300px; 
+				line-height: 1.4;
+			}
+			
+			.ai-cell { line-height: 1.5; }
+			
 			/* Guide Styles */
 			.wpguard-guide-container { display: grid; grid-template-columns: 2fr 1fr; gap: 30px; }
 			.wpguard-guide-main section { margin-bottom: 40px; }
@@ -392,11 +403,11 @@ class WP_AI_Guard_Admin {
 						<table class="widefat fixed striped">
 							<thead>
 								<tr>
-									<th style="width: 180px;"><?php _e( 'Data i Hora', 'wp-ai-guard' ); ?></th>
-									<th style="width: 140px;"><?php _e( 'Adreça IP', 'wp-ai-guard' ); ?></th>
-									<th style="width: 120px;"><?php _e( 'Nivell de Risc', 'wp-ai-guard' ); ?></th>
-									<th><?php _e( 'Objectiu (URL)', 'wp-ai-guard' ); ?></th>
-									<th style="width: 40%;"><?php _e( 'Anàlisi Detallat de la IA', 'wp-ai-guard' ); ?></th>
+									<th style="width: 160px;"><?php _e( 'Data i Hora', 'wp-ai-guard' ); ?></th>
+									<th style="width: 130px;"><?php _e( 'Adreça IP', 'wp-ai-guard' ); ?></th>
+									<th style="width: 110px;"><?php _e( 'Risc', 'wp-ai-guard' ); ?></th>
+									<th style="width: 250px;"><?php _e( 'Objectiu (URL)', 'wp-ai-guard' ); ?></th>
+									<th><?php _e( 'Anàlisi Detallat de la IA', 'wp-ai-guard' ); ?></th>
 								</tr>
 							</thead>
 							<tbody id="wpguard-log-body">
@@ -453,7 +464,7 @@ class WP_AI_Guard_Admin {
 									<td style="color: #64748b; font-size: 12px; font-weight: 500;">${log.created_at}</td>
 									<td><strong>${log.ip}</strong></td>
 									<td>${log.badge_html}</td>
-									<td style="font-size:11px; font-family:'JetBrains Mono', monospace; color: var(--wpguard-primary);">${log.url}</td>
+									<td class="url-cell">${log.url}</td>
 									<td class="ai-cell">${aiContent}</td>
 								</tr>`;
 
@@ -604,12 +615,12 @@ class WP_AI_Guard_Admin {
 								<th scope="row"><?php _e( 'Motor d\'IA', 'wp-ai-guard' ); ?></th>
 								<td>
 									<select name="ai_engine" id="ai_engine" style="min-width: 250px; padding: 8px; border-radius: 8px;">
-										<option value="gemini" <?php selected( $ai_engine, 'gemini' ); ?>>Google Gemini (Online API)</option>
-										<option value="ollama" <?php selected( $ai_engine, 'ollama' ); ?>>Ollama (Local AI - 100% Privat)</option>
+										<option value="gemini" <?php selected( $ai_engine, 'gemini' ); ?>>Google Gemini (Online/API)</option>
+										<option value="ollama" <?php selected( $ai_engine, 'ollama' ); ?>>Ollama (Local AI - Free)</option>
 									</select>
 									<p class="description" style="margin-top: 10px;">
-										<span style="color: var(--wpguard-primary); font-weight: bold;">Gemini:</span> Màxima potència, requereix internet.<br>
-										<span style="color: var(--wpguard-success); font-weight: bold;">Ollama:</span> Màxima privadesa, funciona offline.
+										<strong><?php _e( 'Modo Online (Gemini):', 'wp-ai-guard' ); ?></strong> <?php _e( 'Màxima precisió, requereix internet i API Key.', 'wp-ai-guard' ); ?><br>
+										<strong><?php _e( 'Modo Local (Ollama):', 'wp-ai-guard' ); ?></strong> <?php _e( 'Privadesa total, gratuït, funciona sense internet directament en el teu servidor.', 'wp-ai-guard' ); ?>
 									</p>
 								</td>
 							</tr>
